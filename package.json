@@ -1,24 +1,13 @@
 {
   "name": "twitch-casino-bot",
   "version": "1.0.0",
-  "description": "Twitch Casino Bot для Render.com",
-  "main": "twitch-casino.js",
+  "description": "Twitch Casino Bot converted from C# Unity to Node.js for Render.com",
+  "main": "bot.js",
   "scripts": {
-    "start": "node twitch-casino.js",
-    "dev": "nodemon twitch-casino.js"
+    "start": "node bot.js"
   },
-  "keywords": ["twitch", "casino", "bot"],
-  "author": "",
-  "license": "MIT",
+  "dependencies": {},
   "engines": {
-    "node": "18.x"
-  },
-  "dependencies": {
-    "express": "^4.18.2",
-    "tmi.js": "^1.8.5",
-    "dotenv": "^16.3.1"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.1"
+    "node": ">=16.0.0"
   }
 }
