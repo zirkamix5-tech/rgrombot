@@ -1,0 +1,15 @@
+{
+  "name": "rgrombot",
+  "version": "1.0.0",
+  "description": "Полноценный бот для Twitch с семейной системой, викториной и приветствиями",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "family": "node family.js",
+    "viktorina": "node viktorina.js",
+	"hello": "node hello.js"
+  },
+  "dependencies": {
+    "tmi.js": "^1.8.5"
+  }
+}
