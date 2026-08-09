@@ -1,0 +1,23 @@
+{
+  "name": "twitch-unified-bot",
+  "version": "1.0.0",
+  "description": "Unified Twitch Bot with Quiz, Greetings, Family, and Casino modules",
+  "main": "bot-consolidated.js",
+  "scripts": {
+    "start": "node bot-consolidated.js",
+    "dev": "node bot-consolidated.js"
+  },
+  "keywords": [
+    "twitch",
+    "bot",
+    "irc",
+    "quiz",
+    "casino"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {}
+}
