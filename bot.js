@@ -184,7 +184,7 @@ class TwitchCasino {
             else if (currentHour === 5 && this.isCasinoOpen) {
                 this.isCasinoOpen = false;
                 this.SaveData();
-                this.Send("🚫 Наступило время закрытия! Казино автоматически закрывается на перерыв.");
+                this.Send("🚫 Время 5 утра, казино автоматически закрывается на перерыв. До: 15:00");
             }
         }
     }
