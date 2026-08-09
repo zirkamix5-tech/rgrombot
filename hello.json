@@ -1,0 +1,12 @@
+{
+  "name": "rgrombot",
+  "version": "1.0.0",
+  "description": "Полноценный бот для казино на Twitch",
+  "main": "hello.js",
+  "scripts": {
+    "start": "node hello.js"
+  },
+  "dependencies": {
+    "tmi.js": "^1.8.5"
+  }
+}
