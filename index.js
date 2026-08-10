@@ -87,7 +87,7 @@ client.on('message', (channel, tags, message, self) => {
     const isMod = tags.mod || tags.badges?.broadcaster === '1' || username.toLowerCase() === 'qumosx' || username.toLowerCase() === 'rgrombot';
     const isBroadcaster = tags.badges?.broadcaster === '1' || username.toLowerCase() === 'qumosx';
 
-    // Инициализация данных пользователя
+    // Инициализация данных пользователя по умолчанию
     if (!playerBalances[username]) playerBalances[username] = 100;
     if (!workBalances[username]) workBalances[username] = 200;
     if (!shopBalances[username]) shopBalances[username] = 50;
@@ -100,7 +100,7 @@ client.on('message', (channel, tags, message, self) => {
     // --- 1. АВТОПРИВЕТСТВИЕ ---
     if (!greetedUsers.has(username)) {
         greetedUsers.add(username);
-        client.say(channel, `Привет, @${username}! Работает банк стрима: бери кредиты (!кредит [сумма]), покупай бусты и играй в казино!`);
+        client.say(channel, `Привет, @${username}! добро пожаловать к нам! Работай, заводи семью и играй в казино до утра! (Welcome.)`);
     }
 
     // --- 2. УПРАВЛЕНИЕ КАЗИНО И ВЫВОД СРЕДСТВ ИЗ БАНКОВ (ВЛАДЕЛЕЦ) ---
@@ -117,7 +117,6 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // Универсальное снятие средств со всех банков владельцем -> на рабочий счет владельца
     if (lowerMessage.startsWith('!снятьбанк') && isBroadcaster) {
         const parts = trimmedMessage.split(' ');
         const bankType = parts[1]?.toLowerCase();
@@ -155,13 +154,11 @@ client.on('message', (channel, tags, message, self) => {
             return;
         }
 
-        // Списание с выбранного банка
         if (bankType === 'казино') casinoBank -= amount;
         else if (bankType === 'бусты' || bankType === 'бустов') boostsBank -= amount;
         else if (bankType === 'магазин') storeBank -= amount;
         else if (bankType === 'банк' || bankType === 'общий') mainBankBalance -= amount;
 
-        // Зачисление владельцу на рабочий счет
         workBalances[username] = (workBalances[username] || 0) + amount;
         client.say(channel, `💸 Владелец @${username} снял ${amount} из (${targetName}) на свой рабочий счет (+${amount} 💵)!`);
         return;
@@ -181,7 +178,7 @@ client.on('message', (channel, tags, message, self) => {
             return;
         }
         playerDebts[username] += amount;
-        playerBalances[username] += amount; // Выдаем кредит на игровой баланс казино
+        playerBalances[username] += amount;
         client.say(channel, `🏦 Банк одобрил и выдал @${username} кредит на сумму ${amount} 🪙! Общий долг: ${playerDebts[username]} 🪙`);
         return;
     }
@@ -208,12 +205,12 @@ client.on('message', (channel, tags, message, self) => {
 
         playerBalances[username] -= amount;
         playerDebts[username] -= amount;
-        mainBankBalance += amount; // Деньги от погашения кредита идут на банковский счет банка
+        mainBankBalance += amount;
         client.say(channel, `✅ @${username} успешно погасил ${amount} 🪙 долга! Остаток долга: ${playerDebts[username]} 🪙`);
         return;
     }
 
-    // --- 4. МАГАЗИН ПРЕДМЕТОВ (С ПРОЦЕНТОМ В БАНК) ---
+    // --- 4. МАГАЗИН ПРЕДМЕТОВ ---
     if (lowerMessage === '!магазин') {
         let text = `🛒 МАГАЗИН ТОВАРОВ: `;
         Object.entries(SHOP_ITEMS).forEach(([itemName, itemData]) => {
@@ -239,15 +236,14 @@ client.on('message', (channel, tags, message, self) => {
 
         workBalances[username] -= item.price;
         
-        // Процент от покупки идет в банк магазина и на главный счет банка
-        const bankTax = Math.floor(item.price * 0.15); // 15% в банк
+        const bankTax = Math.floor(item.price * 0.15);
         storeBank += bankTax;
         mainBankBalance += bankTax;
 
         if (!playerInventory[username]) playerInventory[username] = [];
         playerInventory[username].push(itemName);
 
-        client.say(channel, `🛍️ Поздравляем, @${username}! Вы купили "${itemName}" за ${item.price} 💵! (15% (${bankTax}) уведено в банк)`);
+        client.say(channel, `🛍️ Поздравляем, @${username}! Вы купили "${itemName}" за ${item.price} 💵!`);
         return;
     }
 
@@ -289,16 +285,15 @@ client.on('message', (channel, tags, message, self) => {
         boostShopBalances[username] -= boostData.price;
         playerBoosts[username][boostData.type] += boostData.amount;
 
-        // Процент от покупки буста идет в банк бустов и на главный счет банка
-        const bankTax = Math.floor(boostData.price * 0.20); // 20% в банк
+        const bankTax = Math.floor(boostData.price * 0.20);
         boostsBank += bankTax;
         mainBankBalance += bankTax;
 
-        client.say(channel, `🎉 Успешно! @${username} приобрел буст "**${boostKey}**" (+${boostData.amount} зарядов)! Часть средств ушла в банк бустов.`);
+        client.say(channel, `🎉 Успешно! @${username} приобрел буст "**${boostKey}**" (+${boostData.amount} зарядов)!`);
         return;
     }
 
-    // --- 6. КАЗИНО С УЧЕТОМ ПРОЦЕНТОВ В БАНК ---
+    // --- 6. КАЗИНО ---
     if (lowerMessage.startsWith('!spin')) {
         if (!isCasinoOpen) {
             client.say(channel, `⏳ Казино сейчас закрыто.`);
@@ -318,18 +313,15 @@ client.on('message', (channel, tags, message, self) => {
         const boosts = playerBoosts[username];
         let winMultiplier = 1;
         let winChanceBonus = 0;
-        let usedAnyBoost = false;
 
         if (boosts.luck > 0) {
             boosts.luck--;
             winChanceBonus = 0.20;
-            usedAnyBoost = true;
         }
 
         if (boosts.x2 > 0) {
             boosts.x2--;
             winMultiplier = 2;
-            usedAnyBoost = true;
         }
 
         const symbols = ['🍒', '🍋', '🔔', '⭐', '💎', '7️⃣'];
@@ -345,7 +337,6 @@ client.on('message', (channel, tags, message, self) => {
             let rawWin = bet * 15 * winMultiplier;
             const tax = Math.floor(rawWin * 0.1);
             
-            // Процент от выигрыша казино идет в банк казино и на главный счет банка
             const bankShare = Math.floor(tax * 0.5);
             casinoBank += (tax - bankShare);
             mainBankBalance += bankShare;
@@ -353,7 +344,7 @@ client.on('message', (channel, tags, message, self) => {
             const win = rawWin - tax;
             playerBalances[username] += win;
             shopBalances[username] += Math.floor(bet / 2);
-            client.say(channel, `🎰 ДЖЕКПOT! @${username} (${r1} ${r2} ${r3}) выиграл +${win} КРЫШКИ! (Процент ушел в банк)`);
+            client.say(channel, `🎰 ДЖЕКПOT! @${username} (${r1} ${r2} ${r3}) выиграл +${win} КРЫШКИ!`);
         } else if (r1 === r2 || r2 === r3 || r1 === r3) {
             let rawWin = Math.floor(bet * 2.5 * winMultiplier);
             const tax = Math.max(1, Math.floor(rawWin * 0.1));
@@ -380,37 +371,124 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 7. ОБЩИЙ БАЛАНС И СТАТИСТИКА ---
-    if (lowerMessage === '!баланс' || lowerMessage === '!крышки') {
-        client.say(channel, `💰 @${username} | Казино: ${playerBalances[username]} 🪙 | Работа: ${workBalances[username]} 💵 | Счёт бустов: ${boostShopBalances[username]} 🔮 | Долг банку: ${playerDebts[username]} 🪙`);
+    // --- 7. ПРОФИЛЬ, БАЛАНС И ОБЩАЯ СТАТИСТИКА ИГРОКА ---
+    if (lowerMessage.startsWith('!статистика') || lowerMessage.startsWith('!профиль') || lowerMessage.startsWith('!стат')) {
+        const args = trimmedMessage.split(' ');
+        let targetUser = username;
+
+        if (args[1]) {
+            targetUser = args[1].replace('@', '').toLowerCase();
+        }
+
+        if (targetUser !== username && playerBalances[targetUser] === undefined) {
+            client.say(channel, `❌ Игрок @${targetUser} не найден.`);
+            return;
+        }
+
+        const caps = playerBalances[targetUser] || 0;
+        const workMoney = workBalances[targetUser] || 0;
+        const debt = playerDebts[targetUser] || 0;
+        const boostPoints = boostShopBalances[targetUser] || 0;
+        
+        const job = playerJobs[targetUser] || 'Безработный';
+        const invArray = playerInventory[targetUser] || [];
+        const inventory = invArray.length > 0 ? invArray.join(', ') : 'Ничего нет';
+        
+        const b = playerBoosts[targetUser] || { luck: 0, x2: 0, shield: 0 };
+        const activeBoosts = `Уд:${b.luck}|x2:${b.x2}|Щит:${b.shield}`;
+
+        client.say(channel, `📊 Профиль @${targetUser} ➔ 🪙 КРЫШКИ: ${caps} | 💵 Счет: ${workMoney} | 🏦 Долг: ${debt} | 🔮 Очки бустов: ${boostPoints} | 💼 Работа: ${job} | 🛒 Имущество: [${inventory}] | ⚡ Бусты: [${activeBoosts}]`);
         return;
     }
 
-    // --- 8. РАБОТА И ОБМЕН ---
+    if (lowerMessage === '!баланс' || lowerMessage === '!крышки') {
+        client.say(channel, `💰 @${username} | Казино: ${playerBalances[username]} 🪙 | Работа: ${workBalances[username]} 💵 | Счёт бустов: ${boostShopBalances[username]} 🔮 | Долг: ${playerDebts[username]} 🪙`);
+        return;
+    }
+
+    if (lowerMessage === '!банкстат' && isMod) {
+        client.say(channel, `📈 БАНКИ СТРИМА | Главный счет: ${mainBankBalance} 🪙 | Казино: ${casinoBank} 🪙 | Магазин: ${storeBank} | Банк бустов: ${boostsBank} 🔮`);
+        return;
+    }
+
+    // --- 8. РАБОТА И ОБМЕН (ПОЛНЫЙ БЛОК) ---
     if (lowerMessage === '!работы') {
         let text = `💼 ДОСТУПНЫЕ РАБОТЫ: `;
         Object.entries(JOBS_DATA).forEach(([jobName, data]) => {
-            text += `[${jobName}] Зарплата: ${data.salary} 💵 | `;
+            text += `[${jobName}] Зарплата: ${data.salary} 💵 (мин. КРЫШКИ: ${data.req}) | `;
         });
         client.say(channel, text + `Устроиться: !устроиться [название]`);
         return;
     }
 
+    if (lowerMessage.startsWith('!устроиться')) {
+        const jobNameArg = trimmedMessage.split(' ')[1];
+        if (!jobNameArg) {
+            client.say(channel, `⚠️ Укажите название работы. Пример: !устроиться Курьер. Список: !работы`);
+            return;
+        }
+
+        // Поиск работы с учетом регистра первой буквы
+        const foundJobKey = Object.keys(JOBS_DATA).find(j => j.toLowerCase() === jobNameArg.toLowerCase());
+        const jobConfig = JOBS_DATA[foundJobKey];
+
+        if (!jobConfig) {
+            client.say(channel, `❌ Такой работы не существует! Список доступных: !работы`);
+            return;
+        }
+
+        const userCaps = playerBalances[username] || 0;
+        if (userCaps < jobConfig.req) {
+            client.say(channel, `❌ Недостаточно опыта/капитала! Для работы "${foundJobKey}" нужно иметь минимум ${jobConfig.req} КРЫШЕК на балансе казино.`);
+            return;
+        }
+
+        playerJobs[username] = foundJobKey;
+        client.say(channel, `🎉 Поздравляем, @${username}! Вы успешно устроились на новую работу: **${foundJobKey}**!`);
+        return;
+    }
+
+    if (lowerMessage === '!мояработа' || lowerMessage === '!prof') {
+        const currentJob = playerJobs[username];
+        if (!currentJob) {
+            client.say(channel, `💼 @${username}, вы сейчас безработный. Выберите вакансию через !работы`);
+            return;
+        }
+        const jobConfig = JOBS_DATA[currentJob];
+        client.say(channel, `💼 Ваша текущая профессия: **${currentJob}** | Зарплата за смену: ${jobConfig.salary} 💵 | Интервал: ${jobConfig.cooldown / 60000} мин.`);
+        return;
+    }
+
+    if (lowerMessage === '!уволиться') {
+        if (!playerJobs[username]) {
+            client.say(channel, `⚠️ @${username}, вы и так нигде не работаете.`);
+            return;
+        }
+        const oldJob = playerJobs[username];
+        delete playerJobs[username];
+        delete jobCooldowns[username];
+        client.say(channel, `🚪 @${username} уволился с должности "${oldJob}" и теперь снова безработный.`);
+        return;
+    }
+
     if (lowerMessage === '!работа' || lowerMessage === '!work') {
         const currentJob = playerJobs[username];
-        if (!currentJob) { client.say(channel, `❌ Вы безработный! Список: !работы`); return; }
+        if (!currentJob) { 
+            client.say(channel, `❌ Вы безработный! Выберите работу: !работы`); 
+            return; 
+        }
         const jobConfig = JOBS_DATA[currentJob];
         const now = Date.now();
         const timeLeft = (jobCooldowns[username] || 0) + jobConfig.cooldown - now;
 
         if (timeLeft > 0) {
-            client.say(channel, `⏳ @${username}, смена не окончена. Ждать ~${Math.ceil(timeLeft / 60000)} мин.`);
+            client.say(channel, `⏳ @${username}, смена еще не окончена. Подождите ~${Math.ceil(timeLeft / 60000)} мин.`);
             return;
         }
 
         jobCooldowns[username] = now;
         workBalances[username] += jobConfig.salary;
-        client.say(channel, `💼 @${username} отработал смену (**${currentJob}**) и получил +${jobConfig.salary} 💵!`);
+        client.say(channel, `💼 @${username} успешно отработал смену (**${currentJob}**) и получил +${jobConfig.salary} 💵!`);
         return;
     }
 
