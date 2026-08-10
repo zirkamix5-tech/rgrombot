@@ -25,6 +25,10 @@ const casinoDebts = {};              // Долги игроков лично п�
 const casinoDebtDeadlines = {};      // Таймер/дедлайн погашения долга казино (timestamp в мс)
 const personalBankBalances = {};     // Личные банковские счета игроков
 
+// --- СИСТЕМА ВОЗРАСТА И ПЕНСИЙ ---
+const playerAges = {};               // Возраст игроков (playerAges[username] = число лет)
+const lastPensionTime = {};          // Таймер выплаты пенсии, чтобы не начислять каждую секунду
+
 // --- СИСТЕМА БРАКОВ И СЕМЕЙ ---
 const playerMarriages = {};          // playerMarriages[username] = partnerUsername
 const marriageDates = {};            // marriageDates[username] = дата/время свадьбы
@@ -101,6 +105,34 @@ setInterval(() => {
         }
     }
 }, 60 * 1000);
+
+// --- АВТО-УВЕЛИЧЕНИЕ ВОЗРАСТА ИГРОКОВ (Раз в 3 часа реального времени) ---
+setInterval(() => {
+    for (const username of Object.keys(playerBalances)) {
+        playerAges[username] = (playerAges[username] || 18) + 1;
+    }
+}, 3 * 60 * 60 * 1000);
+
+// --- СИСТЕМА НАЧИСЛЕНИЯ ПЕНСИЙ (Каждый час для игроков 50+) ---
+setInterval(() => {
+    for (const [username, age] of Object.entries(playerAges)) {
+        if (age >= 50) {
+            // Рассчитываем пенсию на основе работы (или базовую, если не работал)
+            const jobKey = playerJobs[username];
+            const jobSalary = (jobKey && JOBS_DATA[jobKey]) ? JOBS_DATA[jobKey].salary : 30;
+            const pensionAmount = Math.floor(jobSalary * 0.6); // 60% от бывшей зарплаты
+
+            if (mainBankBalance < pensionAmount) {
+                // Если в главном банке нет денег, пенсия не выплачивается
+                continue;
+            }
+
+            mainBankBalance -= pensionAmount;
+            workBalances[username] = (workBalances[username] || 0) + pensionAmount;
+            client.say('QumosX', `👴 Государственный банк выплатил пенсию ветерану труда @${username} (Возраст: ${age} лет) в размере ${pensionAmount} 💵!`);
+        }
+    }
+}, 60 * 60 * 1000);
 
 // --- СИСТЕМА АВТО-ВЫДАЧИ ЗАРПЛАТЫ СОТРУДНИКАМ КАЗИНО (Каждый час) ---
 setInterval(() => {
@@ -224,6 +256,7 @@ client.on('message', (channel, tags, message, self) => {
     if (playerDebts[username] === undefined) playerDebts[username] = 0;
     if (casinoDebts[username] === undefined) casinoDebts[username] = 0;
     if (personalBankBalances[username] === undefined) personalBankBalances[username] = 0;
+    if (playerAges[username] === undefined) playerAges[username] = 18; // Стандартный возраст совершеннолетия при первом появлении
     if (!playerBoosts[username]) {
         playerBoosts[username] = { luck: 0, x2: 0, shield: 0 };
     }
@@ -249,6 +282,22 @@ client.on('message', (channel, tags, message, self) => {
         isCasinoOpen = false;
         manualOverride = true;
         client.say(channel, `🔴 Сотрудник казино @${username}!, в ручную закрывает его. КАЗИНО ЗАКРЫТО!`);
+        return;
+    }
+
+    // РУЧНАЯ УСТАНОВКА ВОЗРАСТА ИГРОКА ВЛАДЕЛЬЦЕМ (!возраст @ник число)
+    if (lowerMessage.startsWith('!возраст') && isBroadcaster) {
+        const parts = trimmedMessage.split(' ');
+        const targetArg = parts[1]?.replace('@', '').toLowerCase();
+        const newAge = parseInt(parts[2]);
+
+        if (!targetArg || isNaN(newAge) || newAge < 0) {
+            client.say(channel, `⚠️ Использование: !возраст @ник [новое число]`);
+            return;
+        }
+
+        playerAges[targetArg] = newAge;
+        client.say(channel, `🎂 Владелец установил возраст игрока @${targetArg} равным ${newAge} лет.`);
         return;
     }
 
@@ -574,9 +623,54 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 5. БАНКОВСКАЯ СИСТЕМА И ДОЛГИ КАЗИНО ---
+    // --- 5. БАНКОВСКАЯ СИСТЕМА (ПОПОЛНЕНИЕ / СНЯТИЕ НАЛИЧНЫХ) И ДОЛГИ ---
     if (lowerMessage === '!банк' || lowerMessage === '!bank') {
-        client.say(channel, `🏦 @${username}, ваш личный банковский счёт: ${personalBankBalances[username]} 🪙`);
+        client.say(channel, `🏦 @${username}, ваш личный банковский счёт (хранилище): ${personalBankBalances[username]} 💵 | Пополнить: !банк положить [сумма], Снять: !банк снять [сумма]`);
+        return;
+    }
+
+    // ПОПОЛНЕНИЕ ЛИЧНОГО СЧЕТА В БАНКЕ С РАБОЧЕГО СЧЕТА
+    if (lowerMessage.startsWith('!банк положить') || lowerMessage.startsWith('!депозит')) {
+        const args = trimmedMessage.split(' ');
+        let amount = args[2]?.toLowerCase() === 'all' || args[2]?.toLowerCase() === 'все' ? workBalances[username] : parseInt(args[2]);
+
+        if (isNaN(amount) || amount <= 0) {
+            client.say(channel, `⚠️ Укажите сумму для депозита в банк. Пример: !банк положить 500 (или 'все')`);
+            return;
+        }
+
+        if ((workBalances[username] || 0) < amount) {
+            client.say(channel, `❌ У вас недостаточно средств на рабочем счёте! На счёте: ${workBalances[username] || 0} 💵`);
+            return;
+        }
+
+        workBalances[username] -= amount;
+        personalBankBalances[username] = (personalBankBalances[username] || 0) + amount;
+
+        client.say(channel, `🏦 @${username} успешно положил ${amount} 💵 на свой личный банковский счёт! Баланс в банке: ${personalBankBalances[username]} 💵`);
+        return;
+    }
+
+    // СНЯТИЕ С ЛИЧНОГО СЧЕТА В БАНКЕ НА РАБОЧИЙ СЧЕТ
+    if (lowerMessage.startsWith('!банк снять') || lowerMessage.startsWith('!снятьбанк')) {
+        const args = trimmedMessage.split(' ');
+        let amount = args[2]?.toLowerCase() === 'all' || args[2]?.toLowerCase() === 'все' ? personalBankBalances[username] : parseInt(args[2]);
+        const currentBank = personalBankBalances[username] || 0;
+
+        if (isNaN(amount) || amount <= 0) {
+            client.say(channel, `⚠️ Укажите сумму для снятия из банка. Пример: !банк снять 500 (или 'all')`);
+            return;
+        }
+
+        if (currentBank < amount) {
+            client.say(channel, `❌ На вашем личном счёте в банке недостаточно средств! В банке: ${currentBank} 💵`);
+            return;
+        }
+
+        personalBankBalances[username] -= amount;
+        workBalances[username] = (workBalances[username] || 0) + amount;
+
+        client.say(channel, `🏧 @${username} снял ${amount} 💵 со своего личного банковского счёта на рабочий баланс!`);
         return;
     }
 
@@ -1001,6 +1095,7 @@ client.on('message', (channel, tags, message, self) => {
         const cDebt = casinoDebts[targetUser] || 0;
         const boostPoints = boostShopBalances[targetUser] || 0;
         const pBank = personalBankBalances[targetUser] || 0;
+        const age = playerAges[targetUser] || 18;
         
         const job = playerJobs[targetUser] || 'Безработный';
         const casinoRole = casinoStaff[targetUser] ? `🎰 ${casinoStaff[targetUser]}` : '';
@@ -1013,7 +1108,7 @@ client.on('message', (channel, tags, message, self) => {
         const b = playerBoosts[targetUser] || { luck: 0, x2: 0, shield: 0 };
         const activeBoosts = `Уд:${b.luck}|x2:${b.x2}|Щит:${b.shield}`;
 
-        let profileText = `📊 Профиль @${targetUser} ➔ 🪙 КРЫШКИ: ${caps} | 💵 Счет: ${workMoney} | 🏦 Личный банк: ${pBank} | 🏦 Банк-долг: ${debt} | 🎰 Долг казино: ${cDebt} | 🔮 Буст-очки: ${boostPoints} | 💼 Работа: ${job}`;
+        let profileText = `📊 Профиль @${targetUser} ➔ 🎂 Возраст: ${age} лет | 🪙 КРЫШКИ: ${caps} | 💵 Счет: ${workMoney} | 🏦 Личный банк: ${pBank} | 🏦 Банк-долг: ${debt} | 🎰 Долг казино: ${cDebt} | 🔮 Буст-очки: ${boostPoints} | 💼 Работа: ${job}`;
         if (casinoRole) profileText += ` | Должность: ${casinoRole}`;
         profileText += ` | 💒 Семья: ${marriage} | 🛒 Имущество: [${inventory}] | 💡 Коммуналка: [${utilitiesText}] | ⚡ Бусты: [${activeBoosts}]`;
 
@@ -1022,7 +1117,7 @@ client.on('message', (channel, tags, message, self) => {
     }
 
     if (lowerMessage === '!*100#' || lowerMessage === '*100#') {
-        client.say(channel, `💰 @${username} | Казино: ${playerBalances[username]} 🪙 | Работа: ${workBalances[username]} 💵 | Банк: ${personalBankBalances[username]} 🪙 | Счёт бустов: ${boostShopBalances[username]} 🔮 | Долги (Банк: ${playerDebts[username]} | Казино: ${casinoDebts[username]})`);
+        client.say(channel, `💰 @${username} | Возраст: ${playerAges[username]} лет | Казино: ${playerBalances[username]} 🪙 | Работа: ${workBalances[username]} 💵 | Банк: ${personalBankBalances[username]} 💵 | Счёт бустов: ${boostShopBalances[username]} 🔮 | Долги (Банк: ${playerDebts[username]} | Казино: ${casinoDebts[username]})`);
         return;
     }
 
