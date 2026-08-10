@@ -22,6 +22,11 @@ const shopBalances = {};             // Балансы обычных очков
 const boostShopBalances = {};        // Отдельный счет для покупки бустов
 const playerDebts = {};              // Кредитные долги игроков перед банком
 
+// --- СИСТЕМА БРАКОВ И СЕМЕЙ ---
+const playerMarriages = {};          // playerMarriages[username] = partnerUsername
+const marriageDates = {};            // marriageDates[username] = дата/время свадьбы
+const pendingProposals = {};         // pendingProposals[targetUsername] = proposingUsername
+
 // --- СИСТЕМА УСИЛИТЕЛЕЙ (БУСТЕРОВ) ДЛЯ КАЗИНО ---
 const playerBoosts = {};             // playerBoosts[username] = { luck: 0, x2: 0, shield: 0 }
 
@@ -78,14 +83,14 @@ function isBot(tags, username) {
 client.on('message', (channel, tags, message, self) => {
     if (self) return;
 
-    const username = tags['display-name'] || tags.username;
+    const username = (tags['display-name'] || tags.username).toLowerCase();
     if (isBot(tags, username)) return;
 
     const trimmedMessage = message.trim();
     const lowerMessage = trimmedMessage.toLowerCase();
     
-    const isMod = tags.mod || tags.badges?.broadcaster === '1' || username.toLowerCase() === 'qumosx' || username.toLowerCase() === 'rgrombot';
-    const isBroadcaster = tags.badges?.broadcaster === '1' || username.toLowerCase() === 'qumosx';
+    const isMod = tags.mod || tags.badges?.broadcaster === '1' || username === 'qumosx' || username === 'rgrombot';
+    const isBroadcaster = tags.badges?.broadcaster === '1' || username === 'qumosx';
 
     // Инициализация данных пользователя по умолчанию
     if (!playerBalances[username]) playerBalances[username] = 100;
@@ -100,7 +105,7 @@ client.on('message', (channel, tags, message, self) => {
     // --- 1. АВТОПРИВЕТСТВИЕ ---
     if (!greetedUsers.has(username)) {
         greetedUsers.add(username);
-        client.say(channel, `Привет, @${username}! добро пожаловать к нам! Работай, заводи семью и играй в казино до утра! (Welcome.)`);
+        client.say(channel, `Привет, @${username}! Работает банк стрима, казино и система браков (!свадьба @ник)!`);
     }
 
     // --- 2. УПРАВЛЕНИЕ КАЗИНО И ВЫВОД СРЕДСТВ ИЗ БАНКОВ (ВЛАДЕЛЕЦ) ---
@@ -164,7 +169,101 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 3. БАНКОВСКАЯ СИСТЕМА (КРЕДИТЫ И СЧЕТА) ---
+    // --- 3. СИСТЕМА БРАКОВ И СЕМЕЙ ---
+    if (lowerMessage.startsWith('!свадьба') || lowerMessage.startsWith('!брак')) {
+        const parts = trimmedMessage.split(' ');
+        const targetArg = parts[1]?.replace('@', '').toLowerCase();
+
+        if (!targetArg) {
+            client.say(channel, `⚠️ Укажите партнера. Пример: !свадьба @Игрок`);
+            return;
+        }
+        if (targetArg === username) {
+            client.say(channel, `❌ Нельзя жениться на самом себе!`);
+            return;
+        }
+        if (playerMarriages[username]) {
+            client.say(channel, `❌ Вы уже состоите в браке с @${playerMarriages[username]}! Сначала оформите !развод.`);
+            return;
+        }
+        if (playerMarriages[targetArg]) {
+            client.say(channel, `❌ Игрок @${targetArg} уже состоит в браке.`);
+            return;
+        }
+
+        const weddingCost = 250;
+        if (playerBalances[username] < weddingCost) {
+            client.say(channel, `❌ Недостаточно КРЫШЕК для свадьбы! Нужно: ${weddingCost} 🪙`);
+            return;
+        }
+
+        pendingProposals[targetArg] = username;
+        client.say(channel, `💍 @${username} сделал предложение руки и сердца @${targetArg}! Чтобы согласиться, напишите: !принять`);
+        return;
+    }
+
+    if (lowerMessage === '!принять' || lowerMessage === '!согласиться') {
+        const proposer = pendingProposals[username];
+        if (!proposer) {
+            client.say(channel, `⚠️ Вам никто не делал предложений.`);
+            return;
+        }
+
+        if (playerMarriages[username] || playerMarriages[proposer]) {
+            delete pendingProposals[username];
+            client.say(channel, `❌ Кто-то из игроков уже состоит в браке.`);
+            return;
+        }
+
+        const weddingCost = 250;
+        if (playerBalances[proposer] < weddingCost) {
+            delete pendingProposals[username];
+            client.say(channel, `❌ У инициатора свадьбы (@${proposer}) больше нет ${weddingCost} 🪙 на балансе.`);
+            return;
+        }
+
+        playerBalances[proposer] -= weddingCost;
+        mainBankBalance += Math.floor(weddingCost * 0.5); // Половина стоимости свадьбы идет в банк
+
+        playerMarriages[proposer] = username;
+        playerMarriages[username] = proposer;
+        const dateStr = new Date().toLocaleDateString();
+        marriageDates[proposer] = dateStr;
+        marriageDates[username] = dateStr;
+
+        delete pendingProposals[username];
+        client.say(channel, `❤️ ГОРЬКО! @${proposer} и @${username} официально поженились! 🎉 С праздником новую семью!`);
+        return;
+    }
+
+    if (lowerMessage === '!семья' || lowerMessage === '!пара' || lowerMessage === '!бракпрофиль') {
+        const partner = playerMarriages[username];
+        if (!partner) {
+            client.say(channel, `💔 @${username}, вы пока не состоите в браке. Найдите пару: !свадьба @ник`);
+            return;
+        }
+        const date = marriageDates[username] || 'неизвестно';
+        client.say(channel, `💒 Семья: @${username} ❤️ @${partner} | В браке с: ${date}`);
+        return;
+    }
+
+    if (lowerMessage === '!развод') {
+        const partner = playerMarriages[username];
+        if (!partner) {
+            client.say(channel, `⚠️ Вы не состоите в браке.`);
+            return;
+        }
+
+        delete playerMarriages[username];
+        delete playerMarriages[partner];
+        delete marriageDates[username];
+        delete marriageDates[partner];
+
+        client.say(channel, `💔 @${username} и @${partner} официально развелись. Каждый идет своей дорогой.`);
+        return;
+    }
+
+    // --- 4. БАНКОВСКАЯ СИСТЕМА (КРЕДИТЫ И СЧЕТА) ---
     if (lowerMessage === '!банк' || lowerMessage === '!bank') {
         client.say(channel, `🏦 БАНК СТРИМА | Основной счет: ${mainBankBalance} 🪙 | Казино: ${casinoBank} 🪙 | Бусты: ${boostsBank} | Магазин: ${storeBank} 💵`);
         return;
@@ -210,7 +309,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 4. МАГАЗИН ПРЕДМЕТОВ ---
+    // --- 5. МАГАЗИН ПРЕДМЕТОВ ---
     if (lowerMessage === '!магазин') {
         let text = `🛒 МАГАЗИН ТОВАРОВ: `;
         Object.entries(SHOP_ITEMS).forEach(([itemName, itemData]) => {
@@ -247,7 +346,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 5. МАГАЗИН БУСТОВ И СЧЕТ БУСТОВ ---
+    // --- 6. МАГАЗИН БУСТОВ И СЧЕТ БУСТОВ ---
     if (lowerMessage === '!бустышоп' || lowerMessage === '!усилители' || lowerMessage === '!boosts') {
         let text = `⚡ МАГАЗИН БУСТОВ (за счет бустов 🔮): `;
         Object.entries(CASINO_BOOSTS).forEach(([bName, bData]) => {
@@ -293,7 +392,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 6. КАЗИНО ---
+    // --- 7. КАЗИНО ---
     if (lowerMessage.startsWith('!spin')) {
         if (!isCasinoOpen) {
             client.say(channel, `⏳ Казино сейчас закрыто.`);
@@ -371,7 +470,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 7. ПРОФИЛЬ, БАЛАНС И ОБЩАЯ СТАТИСТИКА ИГРОКА ---
+    // --- 8. ПРОФИЛЬ, БАЛАНС И ОБЩАЯ СТАТИСТИКА ИГРОКА ---
     if (lowerMessage.startsWith('!статистика') || lowerMessage.startsWith('!профиль') || lowerMessage.startsWith('!стат')) {
         const args = trimmedMessage.split(' ');
         let targetUser = username;
@@ -393,11 +492,12 @@ client.on('message', (channel, tags, message, self) => {
         const job = playerJobs[targetUser] || 'Безработный';
         const invArray = playerInventory[targetUser] || [];
         const inventory = invArray.length > 0 ? invArray.join(', ') : 'Ничего нет';
+        const marriage = playerMarriages[targetUser] ? `💍 @${playerMarriages[targetUser]}` : 'Холостяк(-ая)';
         
         const b = playerBoosts[targetUser] || { luck: 0, x2: 0, shield: 0 };
         const activeBoosts = `Уд:${b.luck}|x2:${b.x2}|Щит:${b.shield}`;
 
-        client.say(channel, `📊 Профиль @${targetUser} ➔ 🪙 КРЫШКИ: ${caps} | 💵 Счет: ${workMoney} | 🏦 Долг: ${debt} | 🔮 Очки бустов: ${boostPoints} | 💼 Работа: ${job} | 🛒 Имущество: [${inventory}] | ⚡ Бусты: [${activeBoosts}]`);
+        client.say(channel, `📊 Профиль @${targetUser} ➔ 🪙 КРЫШКИ: ${caps} | 💵 Счет: ${workMoney} | 🏦 Долг: ${debt} | 🔮 Буст-очки: ${boostPoints} | 💼 Работа: ${job} | 💒 Семья: ${marriage} | 🛒 Имущество: [${inventory}] | ⚡ Бусты: [${activeBoosts}]`);
         return;
     }
 
@@ -411,7 +511,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 8. РАБОТА И ОБМЕН (ПОЛНЫЙ БЛОК) ---
+    // --- 9. РАБОТА И ОБМЕН ---
     if (lowerMessage === '!работы') {
         let text = `💼 ДОСТУПНЫЕ РАБОТЫ: `;
         Object.entries(JOBS_DATA).forEach(([jobName, data]) => {
@@ -428,7 +528,6 @@ client.on('message', (channel, tags, message, self) => {
             return;
         }
 
-        // Поиск работы с учетом регистра первой буквы
         const foundJobKey = Object.keys(JOBS_DATA).find(j => j.toLowerCase() === jobNameArg.toLowerCase());
         const jobConfig = JOBS_DATA[foundJobKey];
 
@@ -455,7 +554,7 @@ client.on('message', (channel, tags, message, self) => {
             return;
         }
         const jobConfig = JOBS_DATA[currentJob];
-        client.say(channel, `💼 Ваша текущая профессия: **${currentJob}** | Зарплата за смену: ${jobConfig.salary} 💵 | Интервал: ${jobConfig.cooldown / 60000} мин.`);
+        client.say(channel, `💼 Ваша текущая профессия: **${currentJob}** | Зарплата: ${jobConfig.salary} 💵 | Интервал: ${jobConfig.cooldown / 60000} мин.`);
         return;
     }
 
