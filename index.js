@@ -873,7 +873,7 @@ client.on('message', (channel, tags, message, self) => {
         }
 
         if (workBalances[username] < totalToPay) {
-            client.say(channel, `❌ Недостаточно средств на личном счёте! У вас: ${workBalances[username]} 💵 (нужно: ${totalToPay} 💵)`);
+            client.say(channel, `❌ Недостаточно средств на рабочем счёте! У вас: ${workBalances[username]} 💵 (нужно: ${totalToPay} 💵)`);
             return;
         }
 
