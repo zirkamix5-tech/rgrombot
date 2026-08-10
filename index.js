@@ -245,7 +245,7 @@ client.on('message', (channel, tags, message, self) => {
     const isMod = tags.mod || tags.badges?.broadcaster === '1' || username === 'qumosx' || username === 'gospod_bomzhik' || username === 'miss__krevetka' || username === 'r0ma_gr0m';
     const isBroadcaster = tags.badges?.broadcaster === '1' || username === 'qumosx' || username === 'gospod_bomzhik' || username === 'miss__krevetka' || username === 'r0ma_gr0m';
 
-    // Инициализация данных пользователя по умолчанию (убран стартовый баланс 300 в personalBankBalances)
+    // Инициализация данных пользователя по умолчанию
     if (playerBalances[username] === undefined) playerBalances[username] = 100;
     if (personalBankBalances[username] === undefined) personalBankBalances[username] = 0;
     if (!shopBalances[username]) shopBalances[username] = 0;
@@ -690,11 +690,11 @@ client.on('message', (channel, tags, message, self) => {
 
     if (lowerMessage.startsWith('!погасить кредит') || lowerMessage.startsWith('!вернуть кредит')) {
         const args = trimmedMessage.split(' ');
-        let amount = args[1]?.toLowerCase() === 'all' || args[1]?.toLowerCase() === 'весь' ? playerDebts[username] : parseInt(args[1]);
+        let amount = parseInt(args[1]);
         const currentDebt = playerDebts[username];
 
         if (isNaN(amount) || amount <= 0 || currentDebt <= 0) {
-            client.say(channel, `⚠️ У вас нет активных долгов/кредитов или неверная сумма.`);
+            client.say(channel, `⚠️ У вас нет активных долгов/кредитов или неверная сумма. Пример: !погасить кредит 300`);
             return;
         }
         if (amount > currentDebt) amount = currentDebt;
