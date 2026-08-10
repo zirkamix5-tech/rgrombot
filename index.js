@@ -5,7 +5,7 @@ const http = require('http');
 const opts = {
     identity: {
         username: 'RGROMBOT',                          // Имя вашего бота
-        password: `oauth:${process.env.TWITCH_TOKEN}`  // Токен из переменных окружения Render
+        password: `oauth:4z39cw1q1hwfxhjmqwoha1hhr2zo52`  // Токен из переменных окружения Render
     },
     channels: [
         'QumosX'                                       // Имя вашего канала
