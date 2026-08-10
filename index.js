@@ -1025,7 +1025,7 @@ client.on('message', (channel, tags, message, self) => {
             playerBalances[targetUser] = 100;
         }
 
-        const caps = playerBalances[targetUser] || 0;
+        const caps = playerBalances[targetUser];
         const pBank = personalBankBalances[targetUser] || 0;
         const debt = playerDebts[targetUser] || 0;
         const cDebt = casinoDebts[targetUser] || 0;
