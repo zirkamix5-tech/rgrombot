@@ -25,6 +25,10 @@ const playerDebts = {};              // Сумма долга игрока
 const debtTimestamps = {};           // Время взятия долга (миллисекунды)
 const DEBT_LIMIT_MS = 3 * 24 * 60 * 60 * 1000; // 3 дня в миллисекундах
 
+// --- СИСТЕМА БРАКОВ, ПОЛИАМОРИИ И ДЕТЕЙ ---
+const marriages = {};                // marriages[username] = { partners: [Set], timestamp: ms, date: 'ДД.ММ.ГГГГ', children: [] }
+const marriageProposals = {};        // marriageProposals[targetUser] = fromUser
+
 let casinoBank = 0;                  // Общий банк казино (от % побед в !spin)
 let storeBank = 0;                   // Общий банк магазина (от % покупок в !купить)
 let isCasinoOpen = true;             // Состояние казино (открыто по умолчанию)
@@ -44,7 +48,7 @@ client.on('message', (channel, tags, message, self) => {
     // --- 1. МОДУЛЬ АВТОПРИВЕТСТВИЯ ---
     if (!greetedUsers.has(username)) {
         greetedUsers.add(username);
-        const greeting = `Привет, @${username}! Добро пожаловать на стрим! Копи КРЫШКИ в казино (!spin), заглядывай в магазин (!шоп) и следи за долгами (!долг)!`;
+        const greeting = `Привет, @${username}! Добро пожаловать на стрим! Копи КРЫШКИ (!spin), создавай семьи (!брак), заводи детей (!родить) и следи за долгами (!долг)!`;
         client.say(channel, greeting);
         console.log(`[Автоприветствие] Отправлено для: ${username}`);
     }
@@ -84,7 +88,6 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // Снятие средств из банка казино (доступно ТОЛЬКО владельцу)
     if (lowerMessage.startsWith('!снятьбанк') && isBroadcaster) {
         const args = trimmedMessage.split(' ');
         const amount = parseInt(args[1]);
@@ -103,11 +106,9 @@ client.on('message', (channel, tags, message, self) => {
         playerBalances[username] = (playerBalances[username] || 0) + amount;
 
         client.say(channel, `💸 Владелец @{username} снял из банка казино ${amount} КРЫШКИ! Остаток в банке: ${casinoBank}.`);
-        console.log(`[Банк Казино] Владелец ${username} снял ${amount} крышек.`);
         return;
     }
 
-    // Снятие средств из банка магазина (доступно ТОЛЬКО владельцу)
     if (lowerMessage.startsWith('!снятьбанкмагазина') && isBroadcaster) {
         const args = trimmedMessage.split(' ');
         const amount = parseInt(args[1]);
@@ -126,12 +127,170 @@ client.on('message', (channel, tags, message, self) => {
         shopBalances[username] = (shopBalances[username] || 0) + amount;
 
         client.say(channel, `💸 Владелец @{username} снял из банка магазина ${amount} очков! Остаток в банке магазина: ${storeBank}.`);
-        console.log(`[Банк Магазина] Владелец ${username} снял ${amount} очков.`);
         return;
     }
 
-    // --- 3. СИСТЕМА ДОЛГОВ КАЗИНО ---
-    // Проверка долга
+    // --- 3. СИСТЕМА БРАКОВ, ПОЛИАМОРИИ И ДЕТЕЙ ---
+    // Предложение руки и сердца
+    if (lowerMessage.startsWith('!брак') || lowerMessage.startsWith('!marry')) {
+        const args = trimmedMessage.split(' ');
+        if (args.length < 2) {
+            client.say(channel, `⚠️ @{username}, укажите ник игрока. Пример: !брак [ник]`);
+            return;
+        }
+
+        let targetUserRaw = args[1].replace('@', '');
+        
+        if (username.toLowerCase() === targetUserRaw.toLowerCase()) {
+            client.say(channel, `🤔 @{username}, нельзя вступить в брак с самим собой!`);
+            return;
+        }
+
+        if (marriages[username] && marriages[username].partners.length >= 2) {
+            client.say(channel, `❌ @{username}, ваш полиаморный союз уже заполнен (максимум 3 участника)!`);
+            return;
+        }
+
+        marriageProposals[targetUserRaw.toLowerCase()] = username;
+        client.say(channel, `💍 @{username} сделал(а) предложение руки и сердца игроку @{targetUserRaw}! Для согласия напишите: !принять брак`);
+        console.log(`[Брак] Предложение от ${username} для ${targetUserRaw}`);
+        return;
+    }
+
+    // Принять предложение
+    if (lowerMessage === '!принять брак' || lowerMessage === '!acceptmarry') {
+        const proposer = marriageProposals[username.toLowerCase()];
+        if (!proposer) {
+            client.say(channel, `ℹ️ @{username}, вам никто не делал предложений о браке.`);
+            return;
+        }
+
+        if (marriages[username] && marriages[username].partners.length >= 2) {
+            client.say(channel, `❌ @{username}, у вас уже максимальное количество партнеров (полиамория до 3 человек)!`);
+            return;
+        }
+
+        const proposerKey = Object.keys(playerBalances).find(u => u.toLowerCase() === proposer.toLowerCase()) || proposer;
+        if (marriages[proposerKey] && marriages[proposerKey].partners.length >= 2) {
+            client.say(channel, `❌ @{username}, у игрока @{proposerKey} уже заполнен полиаморный союз!`);
+            return;
+        }
+
+        const currentTimestamp = Date.now();
+        const currentDate = new Date().toLocaleDateString('ru-RU');
+
+        if (!marriages[proposerKey]) {
+            marriages[proposerKey] = { partners: [], timestamp: currentTimestamp, date: currentDate, children: [] };
+        }
+        if (!marriages[proposerKey].partners.includes(username)) {
+            marriages[proposerKey].partners.push(username);
+        }
+
+        if (!marriages[username]) {
+            marriages[username] = { partners: [], timestamp: currentTimestamp, date: currentDate, children: [] };
+        }
+        if (!marriages[username].partners.includes(proposerKey)) {
+            marriages[username].partners.push(proposerKey);
+        }
+
+        marriages[proposerKey].partners.forEach(partner => {
+            if (partner.toLowerCase() !== username.toLowerCase()) {
+                if (!marriages[username].partners.includes(partner)) marriages[username].partners.push(partner);
+                if (marriages[partner] && !marriages[partner].partners.includes(username)) marriages[partner].partners.push(username);
+                if (marriages[partner] && !marriages[partner].partners.includes(proposerKey)) marriages[partner].partners.push(proposerKey);
+            }
+        });
+
+        delete marriageProposals[username.toLowerCase()];
+
+        client.say(channel, `💒 Горько! Сформирован полиаморный союз между @{proposerKey} и @{username}! Дата создания семьи: ${currentDate}. Ура! 🎉`);
+        console.log(`[Брак] Создан союз с участием ${username} и ${proposerKey}`);
+        return;
+    }
+
+    // Отклонить брак
+    if (lowerMessage === '!отклонить брак' || lowerMessage === '!declinemarry') {
+        if (!marriageProposals[username.toLowerCase()]) {
+            client.say(channel, `ℹ️ @{username}, у вас нет активных предложений.`);
+            return;
+        }
+        delete marriageProposals[username.toLowerCase()];
+        client.say(channel, `💔 @{username} отклонил(а) предложение о браке.`);
+        return;
+    }
+
+    // Родити ребенка (нужно состоять в браке > 7 дней)
+    if (lowerMessage === '!родить' || lowerMessage === '!ребенок' || lowerMessage === '!child') {
+        const familyData = marriages[username];
+        if (!familyData || familyData.partners.length === 0) {
+            client.say(channel, `❌ @{username}, вы не состоите в браке, чтобы заводить детей! Сначала найдите пару через !брак.`);
+            return;
+        }
+
+        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+        const timeInMarriage = Date.now() - familyData.timestamp;
+
+        if (timeInMarriage < sevenDaysMs) {
+            const daysLeft = Math.ceil((sevenDaysMs - timeInMarriage) / (1000 * 60 * 60 * 24));
+            client.say(channel, `⏳ @{username}, ваша семья еще слишком молода! Нужно пробыть в браке минимум 7 дней (осталось ~${daysLeft} дн.).`);
+            return;
+        }
+
+        // Генерация имени ребенка
+        const babyNames = ['Крышечка', 'Малыш Боб', 'Пупсик', 'Бусинка', 'Громозека', 'Счастливчик', 'Казявка', 'Пиксель'];
+        const randomBabyName = babyNames[Math.floor(Math.random() * babyNames.length)];
+
+        // Добавляем ребенка всем участникам семьи
+        const allFamilyMembers = [username, ...familyData.partners];
+        allFamilyMembers.forEach(member => {
+            if (marriages[member]) {
+                if (!marriages[member].children) marriages[member].children = [];
+                marriages[member].children.push(randomBabyName);
+            }
+        });
+
+        client.say(channel, `👶 Поздравляем семейство (@{username} и партнеров)! В браке родился ребенок по имени **${randomBabyName}**! Ура! 🍼🎉`);
+        console.log(`[Ребенок] В семье ${username} родился ребенок: ${randomBabyName}`);
+        return;
+    }
+
+    // Просмотр семьи, даты и детей
+    if (lowerMessage === '!семья' || lowerMessage === '!пара' || lowerMessage === '!family') {
+        const familyData = marriages[username];
+        if (!familyData || familyData.partners.length === 0) {
+            client.say(channel, `💍 @{username} пока одинок(а). Найдите пару командой: !брак [ник]`);
+            return;
+        }
+
+        const partnersList = familyData.partners.map(p => `@${p}`).join(', ');
+        const childrenList = familyData.children && familyData.children.length > 0 ? familyData.children.join(', ') : 'нет';
+        client.say(channel, `❤️ Семья @{username}: партнеры — ${partnersList} | Дети: ${childrenList} | Дата союза: ${familyData.date} 📅`);
+        return;
+    }
+
+    // Развод / Расторжение
+    if (lowerMessage === '!развод' || lowerMessage === '!divorce') {
+        const familyData = marriages[username];
+        if (!familyData || familyData.partners.length === 0) {
+            client.say(channel, `ℹ️ @{username}, вы не состоите в браке.`);
+            return;
+        }
+
+        familyData.partners.forEach(partner => {
+            if (marriages[partner]) {
+                marriages[partner].partners = marriages[partner].partners.filter(p => p.toLowerCase() !== username.toLowerCase());
+                if (marriages[partner].partners.length === 0) {
+                    delete marriages[partner];
+                }
+            }
+        });
+
+        delete marriages[username];
+        client.say(channel, `📜 @{username} оформил(а) развод и вышел(ла) из семейного союза.`);
+        return;
+    }
+
+    // --- 4. СИСТЕМА ДОЛГОВ КАЗИНО ---
     if (lowerMessage === '!долг' || lowerMessage === '!debt') {
         const debt = playerDebts[username];
         if (debt === 0) {
@@ -141,7 +300,7 @@ client.on('message', (channel, tags, message, self) => {
 
         const timeLeft = debtTimestamps[username] ? (debtTimestamps[username] + DEBT_LIMIT_MS) - Date.now() : 0;
         if (timeLeft <= 0) {
-            client.say(channel, `🚨 @{username}, ваш долг составляет ${debt} КРЫШКИ! Срок возврата просрочен! Доступ к казино заблокирован до погашения долга (!вернутьдолг [сумма]).`);
+            client.say(channel, `🚨 @{username}, ваш долг составляет ${debt} КРЫШКИ! Срок возврата просрочен! Доступ в казино заблокирован до погашения долга (!вернутьдолг [сумма]).`);
         } else {
             const hoursLeft = Math.ceil(timeLeft / (1000 * 60 * 60));
             client.say(channel, `⚠️ @{username}, ваш долг: ${debt} КРЫШКИ. Осталось времени на возврат: ~${hoursLeft} ч. Погасить: !вернутьдолг [сумма]`);
@@ -149,7 +308,6 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // Взять в долг
     if (lowerMessage.startsWith('!вдолг') || lowerMessage.startsWith('!borrow')) {
         const args = trimmedMessage.split(' ');
         const amount = parseInt(args[1]);
@@ -159,7 +317,6 @@ client.on('message', (channel, tags, message, self) => {
             return;
         }
 
-        // Если игрок берет долг впервые или у него долга не было — фиксируем время начала (старт 3 дней)
         if (playerDebts[username] === 0) {
             debtTimestamps[username] = Date.now();
         }
@@ -168,11 +325,9 @@ client.on('message', (channel, tags, message, self) => {
         playerBalances[username] += amount;
 
         client.say(channel, `🤝 @{username} взял в долг ${amount} КРЫШКИ! Общий долг: ${playerDebts[username]} КРЫШКИ. Верните в течение 3 дней, иначе казино заблокирует доступ! Баланс: ${playerBalances[username]}`);
-        console.log(`[Долг] ${username} взял в долг ${amount}. Всего долг: ${playerDebts[username]}`);
         return;
     }
 
-    // Вернуть долг
     if (lowerMessage.startsWith('!вернутьдолг') || lowerMessage.startsWith('!вернуть') || lowerMessage.startsWith('!paydebt')) {
         const args = trimmedMessage.split(' ');
         const currentDebt = playerDebts[username];
@@ -193,7 +348,7 @@ client.on('message', (channel, tags, message, self) => {
         }
 
         if (playerBalances[username] < amount) {
-            client.say(channel, `❌ @{username}, у вас на балансе казино недостаточно крышек для возврата этой суммы! Баланс: ${playerBalances[username]} | Долг: ${currentDebt}`);
+            client.say(channel, `❌ @{username}, у вас на балансе казино недостаточно крышек! Баланс: ${playerBalances[username]} | Долг: ${currentDebt}`);
             return;
         }
 
@@ -201,17 +356,16 @@ client.on('message', (channel, tags, message, self) => {
         playerBalances[username] -= payAmount;
         playerDebts[username] -= payAmount;
 
-        // Если долг полностью погашен — сбрасываем таймер
         if (playerDebts[username] === 0) {
             debtTimestamps[username] = null;
             client.say(channel, `🎉 Поздравляем, @{username}! Вы полностью погасили долг перед казино! Блокировка снята. Баланс: ${playerBalances[username]}`);
         } else {
-            client.say(channel, `✅ @{username} вернул ${payAmount} КРЫШКИ в счет долга. Остаток долга: ${playerDebts[username]} КРЫШКИ. Баланс: ${playerBalances[username]}`);
+            client.say(channel, `✅ @{username} вернул ${payAmount} КРЫШКИ в счет долга. Остаток долга: ${playerDebts[username]} КРЫШКИ.`);
         }
         return;
     }
 
-    // --- 4. ПЕРЕДАЧА КРЫШЕК ДРУГОМУ ИГРОКУ ---
+    // --- 5. ПЕРЕДАЧА КРЫШЕК ДРУГОМУ ИГРОКУ ---
     if (lowerMessage.startsWith('!передать') || lowerMessage.startsWith('!pay')) {
         const args = trimmedMessage.split(' ');
         if (args.length < 3) {
@@ -246,11 +400,11 @@ client.on('message', (channel, tags, message, self) => {
         playerBalances[username] -= amount;
         playerBalances[targetUser] += amount;
 
-        client.say(channel, `🤝 @{username} успешно перевел ${amount} КРЫШКИ игроку @{targetUser}! Ваш баланс: ${playerBalances[username]} КРЫШКИ.`);
+        client.say(channel, `🤝 @{username} успешно перевел ${amount} КРЫШКИ игроку @{targetUser}!`);
         return;
     }
 
-    // --- 5. СИСТЕМА ТОП КАЗИНО ---
+    // --- 6. СИСТЕМА ТОП КАЗИНО ---
     if (lowerMessage === '!топ' || lowerMessage === '!казинотоп' || lowerMessage === '!top') {
         const sortedPlayers = Object.entries(playerBalances)
             .sort(([, a], [, b]) => b - a)
@@ -271,7 +425,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 6. МАГАЗИН БОНУСОВ ---
+    // --- 7. МАГАЗИН БОНУСОВ ---
     if (lowerMessage === '!шоп' || lowerMessage === '!магазин' || lowerMessage === '!shop') {
         client.say(channel, `🛒 МАГАЗИН БОНУСОВ (За очки магазина): 1️⃣ Пакет крышек (+100 🪙) — 80 очков | 2️⃣ Счастливый билет (лотерея) — 50 очков | 3️⃣ VIP-статус в чате — 300 очков. Купить: !купить [номер]`);
         return;
@@ -296,7 +450,7 @@ client.on('message', (channel, tags, message, self) => {
             return;
         }
 
-        const taxPercent = 15; // 15% уходит в банк магазина
+        const taxPercent = 15; 
 
         if (itemNumber === 1) {
             const price = 80;
@@ -357,14 +511,13 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 7. МОДУЛЬ КАЗИНО (!spin [ставка]) С ПРОВЕРКОЙ ДОЛГА И БЛОКИРОВКИ ---
+    // --- 8. МОДУЛЬ КАЗИНО (!spin [ставка]) ---
     if (lowerMessage.startsWith('!spin')) {
         if (!isCasinoOpen) {
             client.say(channel, `⏳ @{username}, казино сейчас закрыто. Открытие по расписанию в 14:00!`);
             return;
         }
 
-        // Проверяем, просрочен ли долг (> 3 дней)
         const currentDebt = playerDebts[username];
         if (currentDebt > 0 && debtTimestamps[username]) {
             const timePassed = Date.now() - debtTimestamps[username];
@@ -402,7 +555,6 @@ client.on('message', (channel, tags, message, self) => {
         const r2 = symbols[Math.floor(Math.random() * symbols.length)];
         const r3 = symbols[Math.floor(Math.random() * symbols.length)];
 
-        // Джекпот (3 одинаковых)
         if (r1 === r2 && r2 === r3) {
             let rawWin = bet * 15; 
             let bonusText = "";
@@ -424,7 +576,6 @@ client.on('message', (channel, tags, message, self) => {
 
             client.say(channel, `🎰 ДЖЕКПOT!${bonusText} @{username} собрал (${r1} ${r2} ${r3})! Выигрыш: ${rawWin} КРЫШЕК (${taxAmount} в банк казино). На руки: +${playerWin} КРЫШКИ! (+${shopReward} очков магазина). Баланс: ${playerBalances[username]}`);
         } 
-        // Малый выигрыш (пара)
         else if (r1 === r2 || r2 === r3 || r1 === r3) {
             let rawWin = Math.floor(bet * 2.5);
             let bonusText = "";
@@ -451,7 +602,6 @@ client.on('message', (channel, tags, message, self) => {
 
             client.say(channel, `✨ Неплохо! @{username} поймал пару (${r1} ${r2} ${r3})${bonusText}! В банк казино упало ${taxAmount}, вам начислено: +${playerWin} КРЫШКИ и +${shopReward} очков магазина! Баланс: ${playerBalances[username]}`);
         } 
-        // Проигрыш
         else {
             const shopReward = 1; 
             shopBalances[username] += shopReward;
@@ -466,18 +616,16 @@ client.on('message', (channel, tags, message, self) => {
         }
     }
 
-    // Проверка баланса игрока
     if (lowerMessage === '!balance' || lowerMessage === '!крышки') {
         client.say(channel, `💰 @{username}, баланс крышек: ${playerBalances[username]} | Долг: ${playerDebts[username]} | Очки магазина: ${shopBalances[username]}`);
     }
 
-    // Проверка банка казино
     if (lowerMessage === '!банк' || lowerMessage === '!банкказино') {
         client.say(channel, `🏦 Банк казино: ${casinoBank} КРЫШКИ | Банк магазина: ${storeBank} очков.`);
     }
 });
 
-// --- 8. ПРОВЕРКА РАСПИСАНИЯ ПО ВРЕМЕНИ СЕРВЕРА ---
+// --- 9. ПРОВЕРКА РАСПИСАНИЯ ПО ВРЕМЕНИ СЕРВЕРА ---
 setInterval(() => {
     if (manualOverride) return;
 
@@ -485,7 +633,6 @@ setInterval(() => {
     const hours = now.getHours();
     const minutes = now.getMinutes();
 
-    // Авто-закрытие в 05:00
     if (hours === 5 && minutes === 0 && isCasinoOpen) {
         isCasinoOpen = false;
         client.channels.forEach(channel => {
@@ -494,7 +641,6 @@ setInterval(() => {
         console.log(`[Авто-расписание] Казино закрыто по времени (05:00).`);
     }
 
-    // Авто-открытие в 14:00
     if (hours === 14 && minutes === 0 && !isCasinoOpen) {
         isCasinoOpen = true;
         client.channels.forEach(channel => {
@@ -507,11 +653,11 @@ setInterval(() => {
 // Подключение бота к Twitch
 client.connect().catch(console.error);
 
-// --- 9. HTTP-СЕРВЕР ДЛЯ RENDER.COM ---
+// --- 10. HTTP-СЕРВЕР ДЛЯ RENDER.COM ---
 const PORT = process.env.PORT || 3000;
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('RGROMBOT Twitch Debt & Casino Service is Running!\n');
+    res.end('RGROMBOT Twitch Family & Kids Service is Running!\n');
 }).listen(PORT, () => {
     console.log(`HTTP сервер успешно запущен на порту ${PORT}`);
 });
