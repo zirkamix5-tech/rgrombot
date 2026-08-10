@@ -192,7 +192,7 @@ client.on('message', (channel, tags, message, self) => {
     const isBroadcaster = tags.badges?.broadcaster === '1' || username === 'qumosx' || username === 'gospod_bomzhik' || username === 'miss__krevetka' || username === 'r0ma_gr0m';
 
     // Инициализация данных пользователя по умолчанию
-    if (!playerBalances[username]) playerBalances[username] = 100;
+    if (playerBalances[username] === undefined) playerBalances[username] = 100;
     if (!workBalances[username]) workBalances[username] = 200;
     if (!shopBalances[username]) shopBalances[username] = 0;
     if (!boostShopBalances[username]) boostShopBalances[username] = 0;
@@ -283,7 +283,7 @@ client.on('message', (channel, tags, message, self) => {
         const roleArg = parts[2]?.toLowerCase();
 
         if (!targetArg || !roleArg || !CASINO_ROLES[roleArg]) {
-            client.say(channel, `⚠️ Использование: !нанять @ник [должность]. Доступные: крупье, охранник, менеджер, директор`);
+            client.say(channel, `⚠️ Использование: !нанять @ник [должность]. Доступные: хостес, бармен, стриптизёр, стриптизёрша, крупье, охранник, менеджер, директор`);
             return;
         }
 
@@ -323,7 +323,7 @@ client.on('message', (channel, tags, message, self) => {
             return;
         }
 
-        if (!playerBalances[targetArg]) {
+        if (playerBalances[targetArg] === undefined) {
             playerBalances[targetArg] = 100;
         }
 
@@ -400,7 +400,7 @@ client.on('message', (channel, tags, message, self) => {
             return;
         }
 
-        if (!playerBalances[targetArg]) {
+        if (playerBalances[targetArg] === undefined) {
             playerBalances[targetArg] = 100;
         }
 
@@ -494,7 +494,6 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- ДОБАВЛЕННЫЙ ФУНКЦИОНАЛ: СИСТЕМА ДЕТЕЙ В БРАКЕ (Если браку менее 7 дней) ---
     if (lowerMessage === '!ребенок' || lowerMessage === '!родить' || lowerMessage === '!дети') {
         const partner = playerMarriages[username];
         if (!partner) {
@@ -538,13 +537,11 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 5. БАНКОВСКАЯ СИСТЕМА И ДОЛГИ КАЗИНО (С ТАЙМЕРОМ НА 3 ДНЯ) ---
+    // --- 5. БАНКОВСКАЯ СИСТЕМА И ДОЛГИ КАЗИНО ---
     if (lowerMessage === '!банк' || lowerMessage === '!bank') {
-        // ИСПРАВЛЕНО: используем переменную 'username' вместо несуществующей 'userstate.username'
         if (username === 'qumosx') {
             client.say(channel, `🏦 БАНК 'CASOLINE' (Admin View) | Банк: ${mainBankBalance} 🪙 | Казино: ${casinoBank} 🪙 | Бусты: ${boostsBank} 💵 | Магазин: ${storeBank} 💵 | Долги: ${casinoDebts[username] || 0} 📉`);
         } else {
-            // Ответ для обычных игроков (показываем только основной счет)
             client.say(channel, `🏦 Баланс банка 'CASOLINE': ${mainBankBalance} 🪙`);
         }
         return;
@@ -648,7 +645,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 6. ТОП КАЗИНО (ДОСТУПЕН ВСЕМ) ---
+    // --- 6. ТОП КАЗИНО ---
     if (lowerMessage === '!топказ' || lowerMessage === '!topcas' || lowerMessage === '!топкрышки') {
         const sortedPlayers = Object.entries(playerBalances)
             .sort(([, a], [, b]) => b - a)
@@ -668,7 +665,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 7. СИСТЕМА ДОЛЖНОСТЕЙ В КАЗИНО И КОМАНДЫ ДЛЯ СОТРУДНИКОВ ---
+    // --- 7. СИСТЕМА ДОЛЖНОСТЕЙ В КАЗИНО ---
     if (lowerMessage === '!должностиказ' || lowerMessage === '!staff') {
         let text = `🎰 ДОЛЖНОСТИ В КАЗИНО: `;
         Object.entries(CASINO_ROLES).forEach(([rName, rData]) => {
@@ -689,7 +686,6 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // Команды для должностей казино
     if (lowerMessage === '!приветказ') {
         const staffRole = casinoStaff[username];
         if (!staffRole) {
@@ -756,7 +752,6 @@ client.on('message', (channel, tags, message, self) => {
 
         workBalances[username] -= totalToPay;
 
-        // Процент от выплаты налога идёт на общий счёт банка
         const bankShare = Math.floor(totalToPay * 0.50);
         mainBankBalance += bankShare;
         storeBank += (totalToPay - bankShare);
@@ -802,7 +797,6 @@ client.on('message', (channel, tags, message, self) => {
         if (!playerInventory[username]) playerInventory[username] = [];
         playerInventory[username].push(itemName);
 
-        // Если куплено жилье, инициируем начисление первоначальных счетов
         if (item.type === 'жилье') {
             if (!playerUtilities[username]) {
                 playerUtilities[username] = { water: 0, gas: 0, light: 0 };
@@ -863,10 +857,16 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 11. КАЗИНО ---
+    // --- 11. КАЗИНО (ИСПРАВЛЕНА ПРОВЕРКА БАЛАНСА КРЫШЕК) ---
     if (lowerMessage.startsWith('!каз')) {
         if (!isCasinoOpen) {
             client.say(channel, `⏳ Казино сейчас закрыто. Приходите позже, после 12:00.`);
+            return;
+        }
+
+        // Строгая проверка: если баланс крышек равен 0 или отсутствует, играть нельзя
+        if (playerBalances[username] <= 0) {
+            client.say(channel, `❌ @${username}, у вас 0 КРЫШЕК! Вы всё слили. Заработайте деньги на работе (!работа) или обменяйте их (!обменять крышки), чтобы продолжить игру.`);
             return;
         }
 
@@ -878,6 +878,7 @@ client.on('message', (channel, tags, message, self) => {
             return;
         }
 
+        // Списываем ставку со счета игрока
         playerBalances[username] -= bet;
 
         const boosts = playerBoosts[username];
@@ -914,7 +915,7 @@ client.on('message', (channel, tags, message, self) => {
             const win = rawWin - tax;
             playerBalances[username] += win;
             shopBalances[username] += Math.floor(bet / 2);
-            client.say(channel, `🎰 ДЖЕКПOT! @${username} (${r1} ${r2} ${r3}) выиграл +${win} КРЫШКИ!`);
+            client.say(channel, `🎰 ДЖЕКПOT! @${username} (${r1} ${r2} ${r3}) выиграл +${win} КРЫШКИ! Баланс: ${playerBalances[username]} 🪙`);
         } else if (r1 === r2 || r2 === r3 || r1 === r3) {
             let rawWin = Math.floor(bet * 2.5 * winMultiplier);
             const tax = Math.max(1, Math.floor(rawWin * 0.1));
@@ -926,16 +927,16 @@ client.on('message', (channel, tags, message, self) => {
             const win = rawWin - tax;
             playerBalances[username] += win;
             shopBalances[username] += 2;
-            client.say(channel, `✨ Пара (${r1} ${r2} ${r3})! @${username} выиграл +${win} КРЫШКИ!`);
+            client.say(channel, `✨ Пара (${r1} ${r2} ${r3})! @${username} выиграл +${win} КРЫШКИ! Баланс: ${playerBalances[username]} 🪙`);
         } else {
             if (boosts.shield > 0) {
                 boosts.shield--;
                 const refund = Math.floor(bet * 0.5);
                 playerBalances[username] += refund;
-                client.say(channel, `🛡️ Щит спас @${username}! Возвращено 50% ставки (${refund} 🪙).`);
+                client.say(channel, `🛡️ Щит спас @${username}! Возвращено 50% ставки (${refund} 🪙). Баланс: ${playerBalances[username]} 🪙`);
             } else {
                 shopBalances[username] += 1;
-                client.say(channel, `❌ Эх, @${username} (${r1} ${r2} ${r3}). Проигрыш.`);
+                client.say(channel, `❌ Эх, @${username} (${r1} ${r2} ${r3}). Проигрыш. Баланс: ${playerBalances[username]} 🪙`);
             }
         }
         return;
@@ -958,8 +959,7 @@ client.on('message', (channel, tags, message, self) => {
         }
 
         if (playerBalances[targetUser] === undefined) {
-            client.say(channel, `❌ Игрок @${targetUser} не найден.`);
-            return;
+            playerBalances[targetUser] = 100;
         }
 
         const caps = playerBalances[targetUser] || 0;
