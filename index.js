@@ -28,6 +28,8 @@ const casinoDebtDeadlines = {};      // Таймер/дедлайн погаше
 const playerMarriages = {};          // playerMarriages[username] = partnerUsername
 const marriageDates = {};            // marriageDates[username] = дата/время свадьбы
 const pendingProposals = {};         // pendingProposals[targetUsername] = proposingUsername
+const marriageTimestamps = {};       // Точный timestamp свадьбы для проверки сроков детей
+const playerChildren = {};           // playerChildren[username] = количество детей
 
 // --- СИСТЕМА УСИЛИТЕЛЕЙ (БУСТЕРОВ) ДЛЯ КАЗИНО ---
 const playerBoosts = {};             // playerBoosts[username] = { luck: 0, x2: 0, shield: 0 }
@@ -202,6 +204,7 @@ client.on('message', (channel, tags, message, self) => {
     if (!playerUtilities[username]) {
         playerUtilities[username] = { water: 0, gas: 0, light: 0 };
     }
+    if (playerChildren[username] === undefined) playerChildren[username] = 0;
 
     // --- 1. АВТОПРИВЕТСТВИЕ (ЮМОРНОЕ) ---
     if (!greetedUsers.has(username)) {
@@ -469,6 +472,10 @@ client.on('message', (channel, tags, message, self) => {
         const dateStr = new Date().toLocaleDateString();
         marriageDates[proposer] = dateStr;
         marriageDates[username] = dateStr;
+        
+        const nowMs = Date.now();
+        marriageTimestamps[proposer] = nowMs;
+        marriageTimestamps[username] = nowMs;
 
         delete pendingProposals[username];
         client.say(channel, `❤️ ГОРЬКО! @${proposer} и @${username} официально поженились! 🎉 С праздником новую семью!`);
@@ -482,7 +489,32 @@ client.on('message', (channel, tags, message, self) => {
             return;
         }
         const date = marriageDates[username] || 'неизвестно';
-        client.say(channel, `💒 Семья: @${username} ❤️ @${partner} | В браке с: ${date}`);
+        const kidsCount = playerChildren[username] || 0;
+        client.say(channel, `💒 Семья: @${username} ❤️ @${partner} | В браке с: ${date} | Детей: ${kidsCount}`);
+        return;
+    }
+
+    // --- ДОБАВЛЕННЫЙ ФУНКЦИОНАЛ: СИСТЕМА ДЕТЕЙ В БРАКЕ (Если браку менее 7 дней) ---
+    if (lowerMessage === '!ребенок' || lowerMessage === '!родить' || lowerMessage === '!дети') {
+        const partner = playerMarriages[username];
+        if (!partner) {
+            client.say(channel, `❌ @${username}, чтобы завести ребенка, нужно сначала состоять в браке! (!свадьба @ник)`);
+            return;
+        }
+
+        const mTime = marriageTimestamps[username] || 0;
+        const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+        const ageOfMarriage = Date.now() - mTime;
+
+        if (ageOfMarriage > SEVEN_DAYS_MS) {
+            client.say(channel, `❌ С момента вашей свадьбы прошло больше 7 дней. Возможность завести ребенка в первые дни брака упущена!`);
+            return;
+        }
+
+        playerChildren[username] = (playerChildren[username] || 0) + 1;
+        playerChildren[partner] = (playerChildren[partner] || 0) + 1;
+
+        client.say(channel, `👶 Ура! В семье @${username} и @${partner} родился ребёнок! Теперь у вас в семье детей: ${playerChildren[username]}. Здоровья малышу! ❤️`);
         return;
     }
 
@@ -497,6 +529,10 @@ client.on('message', (channel, tags, message, self) => {
         delete playerMarriages[partner];
         delete marriageDates[username];
         delete marriageDates[partner];
+        delete marriageTimestamps[username];
+        delete marriageTimestamps[partner];
+        delete playerChildren[username];
+        delete playerChildren[partner];
 
         client.say(channel, `💔 @${username} и @${partner} Эта прекрасная пара развелась, каждый идёт своей дорогой!`);
         return;
@@ -504,15 +540,15 @@ client.on('message', (channel, tags, message, self) => {
 
     // --- 5. БАНКОВСКАЯ СИСТЕМА И ДОЛГИ КАЗИНО (С ТАЙМЕРОМ НА 3 ДНЯ) ---
     if (lowerMessage === '!банк' || lowerMessage === '!bank') {
-    // Проверка: является ли отправитель сообщения владельцем (замените 'rgrom' на ваш ник)
-    if (userstate.username.toLowerCase() === 'qumosx') {
-        client.say(channel, `🏦 БАНК 'CASOLINE' (Admin View) | Банк: ${mainBankBalance} 🪙 | Казино: ${casinoBank} 🪙 | Бусты: ${boostsBank} 💵 | Магазин: ${storeBank} 💵 | Долги: ${casinoDebt} 📉`);
-    } else {
-        // Ответ для обычных игроков (показываем только основной счет)
-        client.say(channel, `🏦 Баланс банка 'CASOLINE': ${mainBankBalance} 🪙`);
+        // ИСПРАВЛЕНО: используем переменную 'username' вместо несуществующей 'userstate.username'
+        if (username === 'qumosx') {
+            client.say(channel, `🏦 БАНК 'CASOLINE' (Admin View) | Банк: ${mainBankBalance} 🪙 | Казино: ${casinoBank} 🪙 | Бусты: ${boostsBank} 💵 | Магазин: ${storeBank} 💵 | Долги: ${casinoDebts[username] || 0} 📉`);
+        } else {
+            // Ответ для обычных игроков (показываем только основной счет)
+            client.say(channel, `🏦 Баланс банка 'CASOLINE': ${mainBankBalance} 🪙`);
+        }
+        return;
     }
-    return;
-}
 
     if (lowerMessage.startsWith('!кредит') || lowerMessage.startsWith('!взятькредит')) {
         const args = trimmedMessage.split(' ');
@@ -936,7 +972,7 @@ client.on('message', (channel, tags, message, self) => {
         const casinoRole = casinoStaff[targetUser] ? `🎰 ${casinoStaff[targetUser]}` : '';
         const invArray = playerInventory[targetUser] || [];
         const inventory = invArray.length > 0 ? invArray.join(', ') : 'Ничего нет';
-        const marriage = playerMarriages[targetUser] ? `💍 @${playerMarriages[targetUser]}` : 'Холостяк(-ая)';
+        const marriage = playerMarriages[targetUser] ? `💍 @${playerMarriages[targetUser]} (детей: ${playerChildren[targetUser] || 0})` : 'Холостяк(-ая)';
         const u = playerUtilities[targetUser] || { water: 0, gas: 0, light: 0 };
         const utilitiesText = `🚰В:${u.water}|🔥Г:${u.gas}|⚡С:${u.light}`;
         
