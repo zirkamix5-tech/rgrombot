@@ -503,11 +503,16 @@ client.on('message', (channel, tags, message, self) => {
     }
 
     // --- 5. БАНКОВСКАЯ СИСТЕМА И ДОЛГИ КАЗИНО (С ТАЙМЕРОМ НА 3 ДНЯ) ---
-    if (lowerMessage === '!банк') {
-        if (!isBroadcaster) {
-            client.say(channel, `❌ @${username}, Просмотр всех счётов доступен только Владельцу!`);
-            return;
+    if (lowerMessage === '!банк' || lowerMessage === '!bank') {
+    // Проверка: является ли отправитель сообщения владельцем (замените 'rgrom' на ваш ник)
+    if (userstate.username.toLowerCase() === 'qumosx') {
+        client.say(channel, `🏦 БАНК 'CASOLINE' (Admin View) | Банк: ${mainBankBalance} 🪙 | Казино: ${casinoBank} 🪙 | Бусты: ${boostsBank} 💵 | Магазин: ${storeBank} 💵 | Долги: ${casinoDebt} 📉`);
+    } else {
+        // Ответ для обычных игроков (показываем только основной счет)
+        client.say(channel, `🏦 Баланс банка 'CASOLINE': ${mainBankBalance} 🪙`);
     }
+    return;
+}
 
     if (lowerMessage.startsWith('!кредит') || lowerMessage.startsWith('!взятькредит')) {
         const args = trimmedMessage.split(' ');
