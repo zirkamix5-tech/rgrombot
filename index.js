@@ -45,6 +45,24 @@ let storeBank = 0;                   // Банк магазина
 let isCasinoOpen = true;             // Состояние казино
 let manualOverride = false;          // Флаг ручного вмешательства
 
+// --- АВТОМАТИЧЕСКОЕ УПРАВЛЕНИЕ КАЗИНО ПО ВРЕМЕНИ ---
+setInterval(() => {
+    if (manualOverride) return;
+
+    const now = new Date();
+    const hours = now.getHours();
+
+    const shouldBeOpen = hours >= 12 || hours < 2;
+
+    if (shouldBeOpen && !isCasinoOpen) {
+        isCasinoOpen = true;
+        client.action('QumosX', `🟢 Наступило время! Казино автоматически ОТКРЫТО. Добро пожаловать! (!spin)`);
+    } else if (!shouldBeOpen && isCasinoOpen) {
+        isCasinoOpen = false;
+        client.action('QumosX', `🔴 Наступил ночной час! Казино автоматически ЗАКРЫТО до завтрашнего дня.`);
+    }
+}, 60 * 1000);
+
 // --- СИСТЕМА РАБОТЫ И ИМУЩЕСТВА ---
 const playerJobs = {};               
 const jobCooldowns = {};             
@@ -107,7 +125,7 @@ client.on('message', (channel, tags, message, self) => {
     // --- 1. АВТОПРИВЕТСТВИЕ ---
     if (!greetedUsers.has(username)) {
         greetedUsers.add(username);
-        client.say(channel, `Привет, @${username}! Работает банк стрима, казино, топ (!топказино) и долги казино (!долгказино)!`);
+        client.say(channel, `Привет, @${username}! Работает банк, казино, топ, переводы крышек (!передать @ник сумма) и система браков!`);
     }
 
     // --- 2. УПРАВЛЕНИЕ КАЗИНО И ВЫВОД СРЕДСТВ ИЗ БАНКОВ (ВЛАДЕЛЕЦ) ---
@@ -171,7 +189,40 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 3. СИСТЕМА БРАКОВ И СЕМЕЙ ---
+    // --- 3. ПЕРЕДАЧА КРЫШЕК МЕЖДУ ИГРОКАМИ ---
+    if (lowerMessage.startsWith('!передать') || lowerMessage.startsWith('!дать')) {
+        const parts = trimmedMessage.split(' ');
+        const targetArg = parts[1]?.replace('@', '').toLowerCase();
+        const amount = parseInt(parts[2]);
+
+        if (!targetArg || isNaN(amount) || amount <= 0) {
+            client.say(channel, `⚠️ Использование: !передать @ник [сумма]`);
+            return;
+        }
+
+        if (targetArg === username) {
+            client.say(channel, `❌ Нельзя передавать крышки самому себе!`);
+            return;
+        }
+
+        if (playerBalances[username] < amount) {
+            client.say(channel, `❌ У вас недостаточно КРЫШЕК для перевода! Ваш баланс: ${playerBalances[username]} 🪙`);
+            return;
+        }
+
+        // Инициализируем получателя, если его еще не было в базе
+        if (!playerBalances[targetArg]) {
+            playerBalances[targetArg] = 100;
+        }
+
+        playerBalances[username] -= amount;
+        playerBalances[targetArg] += amount;
+
+        client.say(channel, `🤝 @${username} успешно передал ${amount} 🪙 крышек игроку @${targetArg}!`);
+        return;
+    }
+
+    // --- 4. СИСТЕМА БРАКОВ И СЕМЕЙ ---
     if (lowerMessage.startsWith('!свадьба') || lowerMessage.startsWith('!брак')) {
         const parts = trimmedMessage.split(' ');
         const targetArg = parts[1]?.replace('@', '').toLowerCase();
@@ -265,7 +316,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 4. БАНКОВСКАЯ СИСТЕМА И ДОЛГИ КАЗИНО ---
+    // --- 5. БАНКОВСКАЯ СИСТЕМА И ДОЛГИ КАЗИНО ---
     if (lowerMessage === '!банк' || lowerMessage === '!bank') {
         client.say(channel, `🏦 БАНК СТРИМА | Основной счет: ${mainBankBalance} 🪙 | Казино: ${casinoBank} 🪙 | Бусты: ${boostsBank} | Магазин: ${storeBank} 💵`);
         return;
@@ -289,7 +340,6 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // Система взятия долга напрямую у казино
     if (lowerMessage.startsWith('!долгказино') || lowerMessage.startsWith('!взятьдолгказино')) {
         const args = trimmedMessage.split(' ');
         const amount = parseInt(args[1]);
@@ -351,7 +401,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 5. ТОП КАЗИНО ---
+    // --- 6. ТОП КАЗИНО ---
     if (lowerMessage === '!топказино' || lowerMessage === '!topcasino' || lowerMessage === '!топкрышки') {
         const sortedPlayers = Object.entries(playerBalances)
             .sort(([, a], [, b]) => b - a)
@@ -371,7 +421,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 6. МАГАЗИН ПРЕДМЕТОВ ---
+    // --- 7. МАГАЗИН ПРЕДМЕТОВ ---
     if (lowerMessage === '!магазин') {
         let text = `🛒 МАГАЗИН ТОВАРОВ: `;
         Object.entries(SHOP_ITEMS).forEach(([itemName, itemData]) => {
@@ -408,7 +458,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 7. МАГАЗИН БУСТОВ И СЧЕТ БУСТОВ ---
+    // --- 8. МАГАЗИН БУСТОВ И СЧЕТ БУСТОВ ---
     if (lowerMessage === '!бустышоп' || lowerMessage === '!усилители' || lowerMessage === '!boosts') {
         let text = `⚡ МАГАЗИН БУСТОВ (за счет бустов 🔮): `;
         Object.entries(CASINO_BOOSTS).forEach(([bName, bData]) => {
@@ -454,7 +504,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 8. КАЗИНО ---
+    // --- 9. КАЗИНО ---
     if (lowerMessage.startsWith('!spin')) {
         if (!isCasinoOpen) {
             client.say(channel, `⏳ Казино сейчас закрыто.`);
@@ -532,7 +582,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 9. ПРОФИЛЬ, БАЛАНС И ОБЩАЯ СТАТИСТИКА ИГРОКА ---
+    // --- 10. ПРОФИЛЬ, БАЛАНС И ОБЩАЯ СТАТИСТИКА ИГРОКА ---
     if (lowerMessage.startsWith('!статистика') || lowerMessage.startsWith('!профиль') || lowerMessage.startsWith('!стат')) {
         const args = trimmedMessage.split(' ');
         let targetUser = username;
@@ -574,7 +624,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 10. РАБОТА И ОБМЕН ---
+    // --- 11. РАБОТА И ОБМЕН ---
     if (lowerMessage === '!работы') {
         let text = `💼 ДОСТУПНЫЕ РАБОТЫ: `;
         Object.entries(JOBS_DATA).forEach(([jobName, data]) => {
