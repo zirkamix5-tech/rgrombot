@@ -67,7 +67,7 @@ setInterval(() => {
     const now = new Date();
     const hours = now.getHours();
 
-    const shouldBeOpen = hours >= 16 || hours < 10 ;
+    const shouldBeOpen = hours >= 20 || hours < 8 ;
 
     if (shouldBeOpen && !isCasinoOpen) {
         isCasinoOpen = true;
