@@ -822,7 +822,7 @@ client.on('message', (channel, tags, message, self) => {
     }
 
     // --- 11. КАЗИНО ---
-    if (lowerMessage.startsWith('!spin')) {
+    if (lowerMessage.startsWith('!каз')) {
         if (!isCasinoOpen) {
             client.say(channel, `⏳ Казино сейчас закрыто. Приходите позже, после 12:00.`);
             return;
