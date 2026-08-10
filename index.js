@@ -48,7 +48,7 @@ client.on('message', (channel, tags, message, self) => {
     // --- 1. МОДУЛЬ АВТОПРИВЕТСТВИЯ ---
     if (!greetedUsers.has(username)) {
         greetedUsers.add(username);
-        const greeting = `Привет, @${username}! Добро пожаловать на стрим! Копи КРЫШКИ (!spin), создавай семьи (!брак), заводи детей (!родить) и следи за долгами (!долг)!`;
+        const greeting = `Привет, @${username}! Добро пожаловать на стрим! Копи КРЫШКИ (!spin), создавай семьи (!брак), заводи детей (!родить), следи за долгами (!долг) и смотри статистику (!статистика)!`;
         client.say(channel, greeting);
         console.log(`[Автоприветствие] Отправлено для: ${username}`);
     }
@@ -130,8 +130,55 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 3. СИСТЕМА БРАКОВ, ПОЛИАМОРИИ И ДЕТЕЙ ---
-    // Предложение руки и сердца
+    // --- 3. ОБЩАЯ СТАТИСТИКА СТРИМА ---
+    if (lowerMessage === '!статистика' || lowerMessage === '!стримстат' || lowerMessage === '!stats') {
+        const totalPlayers = Object.keys(playerBalances).length;
+        const totalCoins = Object.values(playerBalances).reduce((acc, val) => acc + val, 0);
+        
+        // Подсчет уникальных браков (делим на 2 или считаем уникальные пары/группы чтобы не двоить)
+        const countedMarriages = new Set();
+        let totalMarriagesCount = 0;
+        let totalChildrenCount = 0;
+
+        Object.entries(marriages).forEach(([user, data]) => {
+            // Считаем детей (каждый ребенок записывается обоим родителям, поэтому делим на количество партнеров + 1 или считаем уникально)
+            if (data.children) {
+                totalChildrenCount += data.children.length;
+            }
+
+            // Уникальный подсчет союзов
+            const sortedGroup = [user, ...data.partners].sort().join('-');
+            if (!countedMarriages.has(sortedGroup)) {
+                countedMarriages.add(sortedGroup);
+                totalMarriagesCount++;
+            }
+        });
+        // Так как дети дублируются в массиве каждого родителя в союзе, разделим на размер семьи (партнеры + сам пользователь) для каждого уникального союза
+        // Простой и точный подсчет детей: пройдемся по уникальным группам
+        let realChildrenCount = 0;
+        countedMarriages.forEach(groupStr => {
+            const members = groupStr.split('-');
+            const representative = members[0];
+            if (marriages[representative] && marriages[representative].children) {
+                realChildrenCount += marriages[representative].children.length;
+            }
+        });
+
+        // Статистика долгов
+        let totalDebtSum = 0;
+        let debtorsCount = 0;
+        Object.entries(playerDebts).forEach(([user, debt]) => {
+            if (debt > 0) {
+                totalDebtSum += debt;
+                debtorsCount++;
+            }
+        });
+
+        client.say(channel, `📈 СТАТИСТИКА КАНАЛА: Игроков: ${totalPlayers} | Крышек на руках: ${totalCoins} 🪙 | Банк казино: ${casinoBank} | Союзов: ${totalMarriagesCount} 💍 | Детей: ${realChildrenCount} 👶 | Должников: ${debtorsCount} (Сумма долгов: ${totalDebtSum} 🪙)`);
+        return;
+    }
+
+    // --- 4. СИСТЕМА БРАКОВ, ПОЛИАМОРИИ И ДЕТЕЙ ---
     if (lowerMessage.startsWith('!брак') || lowerMessage.startsWith('!marry')) {
         const args = trimmedMessage.split(' ');
         if (args.length < 2) {
@@ -157,7 +204,6 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // Принять предложение
     if (lowerMessage === '!принять брак' || lowerMessage === '!acceptmarry') {
         const proposer = marriageProposals[username.toLowerCase()];
         if (!proposer) {
@@ -208,7 +254,6 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // Отклонить брак
     if (lowerMessage === '!отклонить брак' || lowerMessage === '!declinemarry') {
         if (!marriageProposals[username.toLowerCase()]) {
             client.say(channel, `ℹ️ @{username}, у вас нет активных предложений.`);
@@ -219,7 +264,6 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // Родити ребенка (нужно состоять в браке > 7 дней)
     if (lowerMessage === '!родить' || lowerMessage === '!ребенок' || lowerMessage === '!child') {
         const familyData = marriages[username];
         if (!familyData || familyData.partners.length === 0) {
@@ -236,11 +280,9 @@ client.on('message', (channel, tags, message, self) => {
             return;
         }
 
-        // Генерация имени ребенка
         const babyNames = ['Крышечка', 'Малыш Боб', 'Пупсик', 'Бусинка', 'Громозека', 'Счастливчик', 'Казявка', 'Пиксель'];
         const randomBabyName = babyNames[Math.floor(Math.random() * babyNames.length)];
 
-        // Добавляем ребенка всем участникам семьи
         const allFamilyMembers = [username, ...familyData.partners];
         allFamilyMembers.forEach(member => {
             if (marriages[member]) {
@@ -254,7 +296,6 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // Просмотр семьи, даты и детей
     if (lowerMessage === '!семья' || lowerMessage === '!пара' || lowerMessage === '!family') {
         const familyData = marriages[username];
         if (!familyData || familyData.partners.length === 0) {
@@ -268,7 +309,6 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // Развод / Расторжение
     if (lowerMessage === '!развод' || lowerMessage === '!divorce') {
         const familyData = marriages[username];
         if (!familyData || familyData.partners.length === 0) {
@@ -290,7 +330,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 4. СИСТЕМА ДОЛГОВ КАЗИНО ---
+    // --- 5. СИСТЕМА ДОЛГОВ КАЗИНО ---
     if (lowerMessage === '!долг' || lowerMessage === '!debt') {
         const debt = playerDebts[username];
         if (debt === 0) {
@@ -365,7 +405,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 5. ПЕРЕДАЧА КРЫШЕК ДРУГОМУ ИГРОКУ ---
+    // --- 6. ПЕРЕДАЧА КРЫШЕК ДРУГОМУ ИГРОКУ ---
     if (lowerMessage.startsWith('!передать') || lowerMessage.startsWith('!pay')) {
         const args = trimmedMessage.split(' ');
         if (args.length < 3) {
@@ -404,7 +444,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 6. СИСТЕМА ТОП КАЗИНО ---
+    // --- 7. СИСТЕМА ТОП КАЗИНО ---
     if (lowerMessage === '!топ' || lowerMessage === '!казинотоп' || lowerMessage === '!top') {
         const sortedPlayers = Object.entries(playerBalances)
             .sort(([, a], [, b]) => b - a)
@@ -425,7 +465,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 7. МАГАЗИН БОНУСОВ ---
+    // --- 8. МАГАЗИН БОНУСОВ ---
     if (lowerMessage === '!шоп' || lowerMessage === '!магазин' || lowerMessage === '!shop') {
         client.say(channel, `🛒 МАГАЗИН БОНУСОВ (За очки магазина): 1️⃣ Пакет крышек (+100 🪙) — 80 очков | 2️⃣ Счастливый билет (лотерея) — 50 очков | 3️⃣ VIP-статус в чате — 300 очков. Купить: !купить [номер]`);
         return;
@@ -511,7 +551,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 8. МОДУЛЬ КАЗИНО (!spin [ставка]) ---
+    // --- 9. МОДУЛЬ КАЗИНО (!spin [ставка]) ---
     if (lowerMessage.startsWith('!spin')) {
         if (!isCasinoOpen) {
             client.say(channel, `⏳ @{username}, казино сейчас закрыто. Открытие по расписанию в 14:00!`);
@@ -625,7 +665,7 @@ client.on('message', (channel, tags, message, self) => {
     }
 });
 
-// --- 9. ПРОВЕРКА РАСПИСАНИЯ ПО ВРЕМЕНИ СЕРВЕРА ---
+// --- 10. ПРОВЕРКА РАСПИСАНИЯ ПО ВРЕМЕНИ СЕРВЕРА ---
 setInterval(() => {
     if (manualOverride) return;
 
@@ -653,11 +693,11 @@ setInterval(() => {
 // Подключение бота к Twitch
 client.connect().catch(console.error);
 
-// --- 10. HTTP-СЕРВЕР ДЛЯ RENDER.COM ---
+// --- 11. HTTP-СЕРВЕР ДЛЯ RENDER.COM ---
 const PORT = process.env.PORT || 3000;
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('RGROMBOT Twitch Family & Kids Service is Running!\n');
+    res.end('RGROMBOT Twitch Stream Statistics Service is Running!\n');
 }).listen(PORT, () => {
     console.log(`HTTP сервер успешно запущен на порту ${PORT}`);
 });
