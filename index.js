@@ -688,13 +688,14 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    if (lowerMessage.startsWith('!погасить кредит') || lowerMessage.startsWith('!вернуть кредит')) {
+    if (lowerMessage.startsWith('!погасить кредит') || lowerMessage.startsWith('!вернуть кредит') || lowerMessage.startsWith('!погасить')) {
         const args = trimmedMessage.split(' ');
-        let amount = parseInt(args[1]);
+        const amountArg = args.find(arg => !isNaN(parseInt(arg)));
+        let amount = parseInt(amountArg);
         const currentDebt = playerDebts[username];
 
         if (isNaN(amount) || amount <= 0 || currentDebt <= 0) {
-            client.say(channel, `⚠️ У вас нет активных долгов/кредитов или неверная сумма. Пример: !погасить кредит 300`);
+            client.say(channel, `⚠️ У вас нет активных долгов/кредитов или неверная сумма. Пример: !погасить кредит 100`);
             return;
         }
         if (amount > currentDebt) amount = currentDebt;
