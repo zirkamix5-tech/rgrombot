@@ -245,9 +245,9 @@ client.on('message', (channel, tags, message, self) => {
     const isMod = tags.mod || tags.badges?.broadcaster === '1' || username === 'qumosx' || username === 'gospod_bomzhik' || username === 'miss__krevetka' || username === 'r0ma_gr0m';
     const isBroadcaster = tags.badges?.broadcaster === '1' || username === 'qumosx' || username === 'gospod_bomzhik' || username === 'miss__krevetka' || username === 'r0ma_gr0m';
 
-    // Инициализация данных пользователя по умолчанию
+    // Инициализация данных пользователя по умолчанию (убран стартовый баланс 300 в personalBankBalances)
     if (playerBalances[username] === undefined) playerBalances[username] = 100;
-    if (personalBankBalances[username] === undefined) personalBankBalances[username] = 200;
+    if (personalBankBalances[username] === undefined) personalBankBalances[username] = 0;
     if (!shopBalances[username]) shopBalances[username] = 0;
     if (!boostShopBalances[username]) boostShopBalances[username] = 0;
     if (playerDebts[username] === undefined) playerDebts[username] = 0;
