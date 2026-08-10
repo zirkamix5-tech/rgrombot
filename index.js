@@ -67,7 +67,7 @@ setInterval(() => {
     const now = new Date();
     const hours = now.getHours();
 
-    const shouldBeOpen = hours >= 12 || hours < 2;
+    const shouldBeOpen = hours >= 15 || hours < 5;
 
     if (shouldBeOpen && !isCasinoOpen) {
         isCasinoOpen = true;
@@ -213,13 +213,13 @@ client.on('message', (channel, tags, message, self) => {
     if (lowerMessage === '!каз открыть' && isMod) {
         isCasinoOpen = true;
         manualOverride = true;
-        client.say(channel, `🟢 Сотрудник казино @{username}, открывает его в ручную. КАЗИНО ОТКРЫТО!`);
+        client.say(channel, `🟢 Сотрудник казино @${username}!, открывает его в ручную. КАЗИНО ОТКРЫТО!`);
         return;
     }
-    if (lowerMessage === '!закрыть казино' && isMod) {
+    if (lowerMessage === '!каз закрыть' && isMod) {
         isCasinoOpen = false;
         manualOverride = true;
-        client.say(channel, `🔴 Сотрудник казино @{username}, в ручную закрывает его. КАЗИНО ЗАКРЫТО!`);
+        client.say(channel, `🔴 Сотрудник казино @${username}!, в ручную закрывает его. КАЗИНО ЗАКРЫТО!`);
         return;
     }
 
