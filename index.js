@@ -690,7 +690,7 @@ client.on('message', (channel, tags, message, self) => {
 
     if (lowerMessage.startsWith('!погасить кредит') || lowerMessage.startsWith('!вернуть кредит')) {
         const args = trimmedMessage.split(' ');
-        let amount = args[1]?.toLowerCase() === 'all' || args[1]?.toLowerCase() === 'все' ? playerDebts[username] : parseInt(args[1]);
+        let amount = args[1]?.toLowerCase() === 'all' || args[1]?.toLowerCase() === 'весь' ? playerDebts[username] : parseInt(args[1]);
         const currentDebt = playerDebts[username];
 
         if (isNaN(amount) || amount <= 0 || currentDebt <= 0) {
