@@ -223,7 +223,7 @@ client.on('message', (channel, tags, message, self) => {
         }
 
         playerBalances[proposer] -= weddingCost;
-        mainBankBalance += Math.floor(weddingCost * 0.5); // Половина стоимости свадьбы идет в банк
+        mainBankBalance += Math.floor(weddingCost * 0.5);
 
         playerMarriages[proposer] = username;
         playerMarriages[username] = proposer;
