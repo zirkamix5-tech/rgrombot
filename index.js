@@ -266,10 +266,10 @@ client.on('message', (channel, tags, message, self) => {
     if (playerChildren[username] === undefined) playerChildren[username] = 0;
 
     // --- 1. АВТОПРИВЕТСТВИЕ (ЮМОРНОЕ) ---
-    if (!greetedUsers.has(username)) {
+  /*  if (!greetedUsers.has(username)) {
         greetedUsers.add(username);
-        client.say(channel, `О, смотрите, кто пришёл! Здаров, @${username}! Готов слить все крышки в казино или набрать кредитов, за которые тебя найдут коллекторы? 🎰💸`);
-    }
+        client.say(channel, `О, смотрите, кто пришёл! Здаров, @${username}! Готов слить все крышки в казино или набрать кредитов, за которые тебя найдут коллекторы? 🎰💸`); 
+    }*/
 
     // --- 2. УПРАВЛЕНИЕ КАЗИНО И ФОНДОМ ЗАРПЛАТ (ВЛАДЕЛЕЦ) ---
     if (lowerMessage === '!каз открыть' && isMod) {
