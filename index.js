@@ -49,6 +49,9 @@ const CASINO_ROLES = {
     'директор': { salary: 200, desc: 'Главный распорядитель казино' }
 };
 
+// --- СИСТЕМА КОММУНАЛЬНЫХ НАЛОГОВ И СЧЕТОВ ---
+const playerUtilities = {};          // playerUtilities[username] = { water: number, gas: number, light: number }
+
 // --- БАНКОВСКАЯ СИСТЕМА И СЧЕТА СТРИМА ---
 let mainBankBalance = 0;             // Основной банковский счет (сюда капают проценты)
 let casinoBank = 0;                  // Банк казино
@@ -119,6 +122,25 @@ setInterval(() => {
     client.say('QumosX', `💰 Автоматическая выплата зарплат сотрудникам казино успешно проведена из фонда! Зарплаты зачислены на рабочие счета 💵.`);
 }, 30 * 60 * 1000);
 
+// --- СИСТЕМА НАЧИСЛЕНИЯ КОММУНАЛЬНЫХ НАЛОГОВ (Каждый час для владельцев жилья) ---
+setInterval(() => {
+    for (const [username, inventory] of Object.entries(playerInventory)) {
+        const hasHousing = inventory.some(item => {
+            const itemInfo = SHOP_ITEMS[item];
+            return itemInfo && itemInfo.type === 'жилье';
+        });
+
+        if (hasHousing) {
+            if (!playerUtilities[username]) {
+                playerUtilities[username] = { water: 0, gas: 0, light: 0 };
+            }
+            playerUtilities[username].water += 25;
+            playerUtilities[username].gas += 30;
+            playerUtilities[username].light += 35;
+        }
+    }
+}, 60 * 60 * 1000);
+
 // --- СИСТЕМА РАБОТЫ И ИМУЩЕСТВА ---
 const playerJobs = {};               
 const jobCooldowns = {};             
@@ -176,6 +198,9 @@ client.on('message', (channel, tags, message, self) => {
     if (casinoDebts[username] === undefined) casinoDebts[username] = 0;
     if (!playerBoosts[username]) {
         playerBoosts[username] = { luck: 0, x2: 0, shield: 0 };
+    }
+    if (!playerUtilities[username]) {
+        playerUtilities[username] = { water: 0, gas: 0, light: 0 };
     }
 
     // --- 1. АВТОПРИВЕТСТВИЕ (ЮМОРНОЕ) ---
@@ -643,7 +668,66 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 8. МАГАЗИН ПРЕДМЕТОВ ---
+    // --- 8. СИСТЕМА КОММУНАЛЬНЫХ НАЛОГОВ ---
+    if (lowerMessage === '!коммуналка' || lowerMessage === '!налоги' || lowerMessage === '!счета') {
+        const u = playerUtilities[username] || { water: 0, gas: 0, light: 0 };
+        client.say(channel, `💡 @${username} Ваши счета за коммуналку ➔ 🚰 Вода: ${u.water} 💵 | 🔥 Газ: ${u.gas} 💵 | ⚡ Свет: ${u.light} 💵. Оплата: !оплатить [вода/газ/свет/все]`);
+        return;
+    }
+
+    if (lowerMessage.startsWith('!оплатить ')) {
+        const targetUtil = trimmedMessage.split(' ')[1]?.toLowerCase();
+        const u = playerUtilities[username] || { water: 0, gas: 0, light: 0 };
+
+        if (!['вода', 'газ', 'свет', 'все'].includes(targetUtil)) {
+            client.say(channel, `⚠️ Укажите, что оплатить: !оплатить [вода / газ / свет / все]`);
+            return;
+        }
+
+        let totalToPay = 0;
+        let paidTypes = [];
+
+        if (targetUtil === 'вода') {
+            if (u.water <= 0) { client.say(channel, `❌ У вас нет задолженности за воду.`); return; }
+            totalToPay = u.water;
+            paidTypes.push('вода');
+        } else if (targetUtil === 'газ') {
+            if (u.gas <= 0) { client.say(channel, `❌ У вас нет задолженности за газ.`); return; }
+            totalToPay = u.gas;
+            paidTypes.push('газ');
+        } else if (targetUtil === 'свет') {
+            if (u.light <= 0) { client.say(channel, `❌ У вас нет задолженности за свет.`); return; }
+            totalToPay = u.light;
+            paidTypes.push('свет');
+        } else if (targetUtil === 'все') {
+            totalToPay = u.water + u.gas + u.light;
+            if (totalToPay <= 0) { client.say(channel, `❌ У вас нет никаких задолженностей по коммуналке!`); return; }
+            if (u.water > 0) paidTypes.push('вода');
+            if (u.gas > 0) paidTypes.push('газ');
+            if (u.light > 0) paidTypes.push('свет');
+        }
+
+        if (workBalances[username] < totalToPay) {
+            client.say(channel, `❌ Недостаточно средств на рабочем счете! У вас: ${workBalances[username]} 💵 (нужно: ${totalToPay} 💵)`);
+            return;
+        }
+
+        workBalances[username] -= totalToPay;
+
+        // Процент от выплаты налога идёт на общий счёт банка
+        const bankShare = Math.floor(totalToPay * 0.50);
+        mainBankBalance += bankShare;
+        storeBank += (totalToPay - bankShare);
+
+        if (targetUtil === 'вода' || targetUtil === 'все') playerUtilities[username].water = 0;
+        if (targetUtil === 'газ' || targetUtil === 'все') playerUtilities[username].gas = 0;
+        if (targetUtil === 'свет' || targetUtil === 'все') playerUtilities[username].light = 0;
+
+        client.say(channel, `🏠 @${username} успешно оплатил(-а) коммуналку (${paidTypes.join(', ')}) на сумму ${totalToPay} 💵! Спасибо за дисциплину.`);
+        return;
+    }
+
+    // --- 9. МАГАЗИН ПРЕДМЕТОВ ---
     if (lowerMessage === '!магазин') {
         let text = `🛒 МАГАЗИН ТОВАРОВ: `;
         Object.entries(SHOP_ITEMS).forEach(([itemName, itemData]) => {
@@ -676,11 +760,22 @@ client.on('message', (channel, tags, message, self) => {
         if (!playerInventory[username]) playerInventory[username] = [];
         playerInventory[username].push(itemName);
 
+        // Если куплено жилье, инициируем начисление первоначальных счетов
+        if (item.type === 'жилье') {
+            if (!playerUtilities[username]) {
+                playerUtilities[username] = { water: 0, gas: 0, light: 0 };
+            }
+            playerUtilities[username].water += 50;
+            playerUtilities[username].gas += 60;
+            playerUtilities[username].light += 75;
+            client.say(channel, `🏠 Поздравляем с покупкой жилья! Вам начислены первые коммунальные счета (!коммуналка).`);
+        }
+
         client.say(channel, `🛍️ Поздравляем, @${username}! Вы купили "${itemName}" за ${item.price} 💵!`);
         return;
     }
 
-    // --- 9. МАГАЗИН БУСТОВ И СЧЕТ БУСТОВ ---
+    // --- 10. МАГАЗИН БУСТОВ И СЧЕТ БУСТОВ ---
     if (lowerMessage === '!бустышоп' || lowerMessage === '!усилители' || lowerMessage === '!boosts') {
         let text = `⚡ МАГАЗИН БУСТОВ (за счет бустов 🔮): `;
         Object.entries(CASINO_BOOSTS).forEach(([bName, bData]) => {
@@ -726,7 +821,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 10. КАЗИНО ---
+    // --- 11. КАЗИНО ---
     if (lowerMessage.startsWith('!spin')) {
         if (!isCasinoOpen) {
             client.say(channel, `⏳ Казино сейчас закрыто.`);
@@ -804,7 +899,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 11. ПРОФИЛЬ, БАЛАНС И СТАТИСТИКА ИГРОКА ---
+    // --- 12. ПРОФИЛЬ, БАЛАНС И СТАТИСТИКА ИГРОКА ---
     if (lowerMessage.startsWith('!статистика') || lowerMessage.startsWith('!профиль') || lowerMessage.startsWith('!стат')) {
         const args = trimmedMessage.split(' ');
         let targetUser = username;
@@ -836,13 +931,15 @@ client.on('message', (channel, tags, message, self) => {
         const invArray = playerInventory[targetUser] || [];
         const inventory = invArray.length > 0 ? invArray.join(', ') : 'Ничего нет';
         const marriage = playerMarriages[targetUser] ? `💍 @${playerMarriages[targetUser]}` : 'Холостяк(-ая)';
+        const u = playerUtilities[targetUser] || { water: 0, gas: 0, light: 0 };
+        const utilitiesText = `🚰В:${u.water}|🔥Г:${u.gas}|⚡С:${u.light}`;
         
         const b = playerBoosts[targetUser] || { luck: 0, x2: 0, shield: 0 };
         const activeBoosts = `Уд:${b.luck}|x2:${b.x2}|Щит:${b.shield}`;
 
         let profileText = `📊 Профиль @${targetUser} ➔ 🪙 КРЫШКИ: ${caps} | 💵 Счет: ${workMoney} | 🏦 Банк-долг: ${debt} | 🎰 Долг казино: ${cDebt} | 🔮 Буст-очки: ${boostPoints} | 💼 Работа: ${job}`;
         if (casinoRole) profileText += ` | Должность: ${casinoRole}`;
-        profileText += ` | 💒 Семья: ${marriage} | 🛒 Имущество: [${inventory}] | ⚡ Бусты: [${activeBoosts}]`;
+        profileText += ` | 💒 Семья: ${marriage} | 🛒 Имущество: [${inventory}] | 💡 Коммуналка: [${utilitiesText}] | ⚡ Бусты: [${activeBoosts}]`;
 
         client.say(channel, profileText);
         return;
@@ -853,7 +950,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 12. РАБОТА И ОБМЕН ---
+    // --- 13. РАБОТА И ОБМЕН ---
     if (lowerMessage === '!работы') {
         let text = `💼 ДОСТУПНЫЕ РАБОТЫ: `;
         Object.entries(JOBS_DATA).forEach(([jobName, data]) => {
