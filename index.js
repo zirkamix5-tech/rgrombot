@@ -504,8 +504,8 @@ client.on('message', (channel, tags, message, self) => {
 
     // --- 5. БАНКОВСКАЯ СИСТЕМА И ДОЛГИ КАЗИНО (С ТАЙМЕРОМ НА 3 ДНЯ) ---
     if (lowerMessage === '!банк' || lowerMessage === '!bank') {
-        client.say(channel, `🏦 БАНК 'CASOLINE' | Основной счет: ${mainBankBalance} 🪙 | Казино: ${casinoBank} 🪙 | Бусты: ${boostsBank} | Магазин: ${storeBank} 💵`);
-        return;
+    if (!isBroadcaster) {
+       client.say(channel, `❌ @${username}, Просматривать общий счёт всех банком может только Владелец.`);
     }
 
     if (lowerMessage.startsWith('!кредит') || lowerMessage.startsWith('!взятькредит')) {
