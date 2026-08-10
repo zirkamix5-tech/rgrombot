@@ -5,7 +5,7 @@ const http = require('http');
 const opts = {
     identity: {
         username: 'RGROMBOT',                          // Имя вашего бота
-        password: `oauth:4z39cw1q1hwfxhjmqwoha1hhr2zo52`  // Токен из переменных окружения Render
+        password: `oauth:${process.env.TWITCH_TOKEN}`  // Токен из переменных окружения Render
     },
     channels: [
         'QumosX'                                       // Имя вашего канала
@@ -34,10 +34,50 @@ let storeBank = 0;                   // Общий банк магазина (о
 let isCasinoOpen = true;             // Состояние казино (открыто по умолчанию)
 let manualOverride = false;          // Флаг ручного вмешательства в расписание
 
+// --- СПИСОК ИЗВЕСТНЫХ БОТОВ И ПРОВЕРКА ---
+const knownBots = new Set([
+    'nightbot',
+    'streamelements',
+    'fossabot',
+    'moobot',
+    'soundalerts',
+    'Streamlabs',
+    'WizeBot',
+    'Coebot',
+    'Phantombot',
+    'AlippBot',
+    'BotRix',
+    'AlerterBot',
+    'JeetBot',
+    'CreatisBot',
+    'QumosX'
+]);
+
+function isBot(tags, username) {
+    const lowerUser = username.toLowerCase();
+    
+    // Проверка по стандартному списку известных ботов
+    if (knownBots.has(lowerUser)) return true;
+    
+    // Проверка окончания никнейма на "-bot" или "_bot"
+    if (lowerUser.endsWith('bot') || lowerUser.endsWith('_bot') || lowerUser.endsWith('-bot')) return true;
+    
+    // Проверка официального Twitch-флага бота в тегах (если передается)
+    if (tags['user-type'] === 'bot' || tags.badges?.bot) return true;
+
+    return false;
+}
+
 client.on('message', (channel, tags, message, self) => {
     if (self) return; // Игнорируем сообщения самого бота
 
     const username = tags['display-name'] || tags.username;
+
+    // --- ГЛОБАЛЬНЫЙ ФИЛЬТР БОТОВ ---
+    if (isBot(tags, username)) {
+        return; // Полностью игнорируем любых ботов
+    }
+
     const trimmedMessage = message.trim();
     const lowerMessage = trimmedMessage.toLowerCase();
     
@@ -135,26 +175,17 @@ client.on('message', (channel, tags, message, self) => {
         const totalPlayers = Object.keys(playerBalances).length;
         const totalCoins = Object.values(playerBalances).reduce((acc, val) => acc + val, 0);
         
-        // Подсчет уникальных браков (делим на 2 или считаем уникальные пары/группы чтобы не двоить)
         const countedMarriages = new Set();
         let totalMarriagesCount = 0;
-        let totalChildrenCount = 0;
 
         Object.entries(marriages).forEach(([user, data]) => {
-            // Считаем детей (каждый ребенок записывается обоим родителям, поэтому делим на количество партнеров + 1 или считаем уникально)
-            if (data.children) {
-                totalChildrenCount += data.children.length;
-            }
-
-            // Уникальный подсчет союзов
             const sortedGroup = [user, ...data.partners].sort().join('-');
             if (!countedMarriages.has(sortedGroup)) {
                 countedMarriages.add(sortedGroup);
                 totalMarriagesCount++;
             }
         });
-        // Так как дети дублируются в массиве каждого родителя в союзе, разделим на размер семьи (партнеры + сам пользователь) для каждого уникального союза
-        // Простой и точный подсчет детей: пройдемся по уникальным группам
+
         let realChildrenCount = 0;
         countedMarriages.forEach(groupStr => {
             const members = groupStr.split('-');
@@ -164,7 +195,6 @@ client.on('message', (channel, tags, message, self) => {
             }
         });
 
-        // Статистика долгов
         let totalDebtSum = 0;
         let debtorsCount = 0;
         Object.entries(playerDebts).forEach(([user, debt]) => {
@@ -697,7 +727,7 @@ client.connect().catch(console.error);
 const PORT = process.env.PORT || 3000;
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('RGROMBOT Twitch Stream Statistics Service is Running!\n');
+    res.end('RGROMBOT Twitch Stream Service with Bot Filter is Running!\n');
 }).listen(PORT, () => {
     console.log(`HTTP сервер успешно запущен на порту ${PORT}`);
 });
