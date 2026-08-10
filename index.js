@@ -122,10 +122,10 @@ client.on('message', (channel, tags, message, self) => {
         playerBoosts[username] = { luck: 0, x2: 0, shield: 0 };
     }
 
-    // --- 1. АВТОПРИВЕТСТВИЕ ---
+    // --- 1. АВТОПРИВЕТСТВИЕ (ЮМОРНОЕ) ---
     if (!greetedUsers.has(username)) {
         greetedUsers.add(username);
-        client.say(channel, `Привет, @${username}! Работает банк, казино, топ, переводы крышек (!передать @ник сумма) и система браков!`);
+        client.say(channel, `О, смотрите, кто пришёл! Здаров, @${username}! Готов слить все крышки в казино или набрать кредитов, за которые тебя найдут коллекторы? 🎰💸`);
     }
 
     // --- 2. УПРАВЛЕНИЕ КАЗИНО И ВЫВОД СРЕДСТВ ИЗ БАНКОВ (ВЛАДЕЛЕЦ) ---
@@ -210,7 +210,6 @@ client.on('message', (channel, tags, message, self) => {
             return;
         }
 
-        // Инициализируем получателя, если его еще не было в базе
         if (!playerBalances[targetArg]) {
             playerBalances[targetArg] = 100;
         }
