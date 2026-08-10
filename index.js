@@ -504,7 +504,7 @@ client.on('message', (channel, tags, message, self) => {
     }
 
     // --- 9. КАЗИНО ---
-    if (lowerMessage.startsWith('!spin')) {
+    if (lowerMessage.startsWith('!каз')) {
         if (!isCasinoOpen) {
             client.say(channel, `⏳ Казино 'QumosCas' закрыто, откроется в 12:00.`);
             return;
@@ -703,7 +703,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    if (lowerMessage.startsWith('!обменять крышки')) {
+    if (lowerMessage.startsWith('!обменказ')) {
         const amount = parseInt(trimmedMessage.split(' ')[2]);
         if (isNaN(amount) || amount <= 0 || workBalances[username] < amount) {
             client.say(channel, `⚠️ Ошибка обмена. Проверьте рабочий счет: ${workBalances[username]} 💵`);
@@ -715,7 +715,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    if (lowerMessage.startsWith('!обналичить') || lowerMessage.startsWith('!вывести')) {
+    if (lowerMessage.startsWith('!вывод') || lowerMessage.startsWith('!вывести')) {
         let amount = trimmedMessage.split(' ')[1]?.toLowerCase() === 'all' ? playerBalances[username] : parseInt(trimmedMessage.split(' ')[1]);
         if (isNaN(amount) || amount <= 0 || playerBalances[username] < amount) {
             client.say(channel, `⚠️ Ошибка вывода. Баланс казино: ${playerBalances[username]} 🪙`);
@@ -723,7 +723,7 @@ client.on('message', (channel, tags, message, self) => {
         }
         playerBalances[username] -= amount;
         workBalances[username] += amount;
-        client.say(channel, `🏧 @${username} вывел ${amount} 🪙 из казино на личный рабочий счет (+${amount} 💵)!`);
+        client.say(channel, `🏧 @${username} вывел ${amount} 🪙 из казино на личный обычный счёт (+${amount} 💵)!`);
         return;
     }
 });
