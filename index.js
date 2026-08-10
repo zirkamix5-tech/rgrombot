@@ -23,6 +23,7 @@ const boostShopBalances = {};        // Отдельный счет для по�
 const playerDebts = {};              // Кредитные долги игроков перед банком
 const casinoDebts = {};              // Долги игроков лично перед казино (КРЫШКИ)
 const casinoDebtDeadlines = {};      // Таймер/дедлайн погашения долга казино (timestamp в мс)
+const personalBankBalances = {};     // Личные банковские счета игроков
 
 // --- СИСТЕМА БРАКОВ И СЕМЕЙ ---
 const playerMarriages = {};          // playerMarriages[username] = partnerUsername
@@ -153,21 +154,40 @@ const jobCooldowns = {};
 const playerInventory = {};          
 
 const JOBS_DATA = {
-    'Грузчик': { salary: 45, cooldown: 15 * 60 * 1000, req: 0 },
-    'Курьер': { salary: 90, cooldown: 25 * 60 * 1000, req: 100 },
-    'Менеджер': { salary: 180, cooldown: 40 * 60 * 1000, req: 500 },
-    'Программист': { salary: 350, cooldown: 60 * 60 * 1000, req: 1500 },
-    'Су-шеф': { salary: 700, cooldown: 100 * 100 * 1000, req:  2000 }
+    'Мусорщик': { salary: 30, cooldown: 60 * 60 * 1000, req: 0 },
+    'Грузчик': { salary: 55, cooldown: 15 * 60 * 1000, req: 0 },
+    'Курьер': { salary: 100, cooldown: 30 * 60 * 1000, req: 125 },
+    'Электрик': { salary: 150, cooldown: 45 * 60 * 1000, req: 200 },
+    'Бухгалтер': { salary: 200, cooldown: 60 * 60 * 1000, req: 300 },
+    'Помощник-Повара': { salary: 230, cooldown: 60 * 60 * 1000, req: 270 },
+    'Менеджер': { salary: 250, cooldown: 80 * 60 * 1000, req: 450 },
+    'Проститут': { salary: 500, cooldown: 60 * 60 * 1000, req: 1000 },
+    'Проститутка': { salary: 700, cooldown: 60 * 60 * 1000, req: 1000 },
+    'Официант': { salary: 700, cooldown: 60 * 60 * 1000, req: 1000 },
+    'Программист': { salary: 800, cooldown: 100 * 60 * 1000, req: 500 },
+    'Домашний-кондитер': { salary: 900, cooldown: 120 * 120 * 1000, req: 1000 },
+    'Шеф-Повар': { salary: 1200, cooldown: 60 * 60 * 1000, req: 1000 },
+    'Су-шеф': { salary: 2000, cooldown: 60 * 60 * 1000, req:  1000 },
+    'Модель': { salary: 2300, cooldown: 60 * 60 * 1000, req: 2700 },
+    'Актёр': { salary: 2500, cooldown: 60 * 60 * 1000, req: 2900 },
 };
 
 const SHOP_ITEMS = {
     'велосипед': { price: 500, type: 'транспорт', desc: 'Двухколесный друг для поездок' },
     'мопед': { price: 1500, type: 'транспорт', desc: 'Уже с ветерком!' },
+    'электросамокат': { price: 3500, type: 'транспорт', desc: 'Уже легче' },
+    'электромопед': { price: 5500, type: 'транспорт', desc: 'Электро...' },
     'машина': { price: 5000, type: 'транспорт', desc: 'Настоящая личная тачка' },
     'спорткар': { price: 20000, type: 'транспорт', desc: 'Быстрая машина для стритрейсера' },
+    'Яхта': { price: 30000, type: 'транспорт', desc: 'Легче чем было' },
+    'Круиз-Лайнер': { price: 75000, type: 'транспорт', desc: 'Плаваем удачно' },
+    'Самолёт': { price: 100000, type: 'транспорт', desc: 'Уже летаем.' },
+    'Вертолёт': { price: 125000, type: 'транспорт', desc: 'Ура, вертик.' },
     'комната': { price: 3000, type: 'жилье', desc: 'Уголок в общежитии' },
     'квартира': { price: 12000, type: 'жилье', desc: 'Собственная квартира в центре' },
-    'дом': { price: 45000, type: 'жилье', desc: 'Загородный коттедж' }
+    'дом': { price: 45000, type: 'жилье', desc: 'Загородный домик' },
+    'Коттедж': { price: 60000, type: 'жилье', desc: 'Загородный коттедж' },
+    'Вилла': { price: 100000, type: 'жилье', desc: 'Уф, богато!' }
 };
 
 // --- СПИСОК ИЗВЕСТНЫХ БОТОВ И ПРОВЕРКА ---
@@ -203,6 +223,7 @@ client.on('message', (channel, tags, message, self) => {
     if (!boostShopBalances[username]) boostShopBalances[username] = 0;
     if (playerDebts[username] === undefined) playerDebts[username] = 0;
     if (casinoDebts[username] === undefined) casinoDebts[username] = 0;
+    if (personalBankBalances[username] === undefined) personalBankBalances[username] = 0;
     if (!playerBoosts[username]) {
         playerBoosts[username] = { luck: 0, x2: 0, shield: 0 };
     }
@@ -445,7 +466,7 @@ client.on('message', (channel, tags, message, self) => {
         }
 
         pendingProposals[targetArg] = username;
-        client.say(channel, `💍 @${username} Вставая на правое колено, делает предложение руки и сердца @${targetArg}! Чтобы согласиться, напишите: !принять`);
+        client.say(channel, `💍 @${username} Вставая на правое колено, делает предложение руки и сердца @${targetArg}! Чтобы согласиться, напишите: !принять. Чтобы отказаться: !отказаться`);
         return;
     }
 
@@ -484,6 +505,17 @@ client.on('message', (channel, tags, message, self) => {
 
         delete pendingProposals[username];
         client.say(channel, `❤️ ГОРЬКО! @${proposer} и @${username} официально поженились! 🎉 С праздником новую семью!`);
+        return;
+    }
+
+    if (lowerMessage === '!отказаться' || lowerMessage === '!отклонить') {
+        const proposer = pendingProposals[username];
+        if (!proposer) {
+            client.say(channel, `⚠️ Вам никто не делал предложений, чтобы от них отказываться.`);
+            return;
+        }
+        delete pendingProposals[username];
+        client.say(channel, `💔 @${username} холодно отклонил(-а) предложение руки и сердца от @${proposer}. Свадьбы не будет!`);
         return;
     }
 
@@ -544,11 +576,7 @@ client.on('message', (channel, tags, message, self) => {
 
     // --- 5. БАНКОВСКАЯ СИСТЕМА И ДОЛГИ КАЗИНО ---
     if (lowerMessage === '!банк' || lowerMessage === '!bank') {
-        if (username === 'qumosx') {
-            client.say(channel, `🏦 БАНК 'CASOLINE' (Admin View) | Банк: ${mainBankBalance} 🪙 | Казино: ${casinoBank} 🪙 | Бусты: ${boostsBank} 💵 | Магазин: ${storeBank} 💵 | Долги: ${casinoDebts[username] || 0} 📉`);
-        } else {
-            client.say(channel, `🏦 Баланс банка 'CASOLINE': ${mainBankBalance} 🪙`);
-        }
+        client.say(channel, `🏦 @${username}, ваш личный банковский счёт: ${personalBankBalances[username]} 🪙`);
         return;
     }
 
@@ -871,7 +899,7 @@ client.on('message', (channel, tags, message, self) => {
 
         // Строгая проверка: если баланс крышек равен 0 или отсутствует, играть нельзя
         if (playerBalances[username] <= 0) {
-            client.say(channel, `❌ @${username}, у вас 0 КРЫШЕК! Вы всё слили. Заработайте деньги на работе (!работа) или обменяйте их (!обменять крышки), чтобы продолжить игру.`);
+            client.say(channel, `❌ @${username}, у вас 0 КРЫШЕК! Вы всё слили. Заработайте деньги на работе (!работа) или обменяйте их (!обмен), чтобы продолжить игру.`);
             return;
         }
 
@@ -972,6 +1000,7 @@ client.on('message', (channel, tags, message, self) => {
         const debt = playerDebts[targetUser] || 0;
         const cDebt = casinoDebts[targetUser] || 0;
         const boostPoints = boostShopBalances[targetUser] || 0;
+        const pBank = personalBankBalances[targetUser] || 0;
         
         const job = playerJobs[targetUser] || 'Безработный';
         const casinoRole = casinoStaff[targetUser] ? `🎰 ${casinoStaff[targetUser]}` : '';
@@ -984,7 +1013,7 @@ client.on('message', (channel, tags, message, self) => {
         const b = playerBoosts[targetUser] || { luck: 0, x2: 0, shield: 0 };
         const activeBoosts = `Уд:${b.luck}|x2:${b.x2}|Щит:${b.shield}`;
 
-        let profileText = `📊 Профиль @${targetUser} ➔ 🪙 КРЫШКИ: ${caps} | 💵 Счет: ${workMoney} | 🏦 Банк-долг: ${debt} | 🎰 Долг казино: ${cDebt} | 🔮 Буст-очки: ${boostPoints} | 💼 Работа: ${job}`;
+        let profileText = `📊 Профиль @${targetUser} ➔ 🪙 КРЫШКИ: ${caps} | 💵 Счет: ${workMoney} | 🏦 Личный банк: ${pBank} | 🏦 Банк-долг: ${debt} | 🎰 Долг казино: ${cDebt} | 🔮 Буст-очки: ${boostPoints} | 💼 Работа: ${job}`;
         if (casinoRole) profileText += ` | Должность: ${casinoRole}`;
         profileText += ` | 💒 Семья: ${marriage} | 🛒 Имущество: [${inventory}] | 💡 Коммуналка: [${utilitiesText}] | ⚡ Бусты: [${activeBoosts}]`;
 
@@ -993,7 +1022,7 @@ client.on('message', (channel, tags, message, self) => {
     }
 
     if (lowerMessage === '!*100#' || lowerMessage === '*100#') {
-        client.say(channel, `💰 @${username} | Казино: ${playerBalances[username]} 🪙 | Работа: ${workBalances[username]} 💵 | Счёт бустов: ${boostShopBalances[username]} 🔮 | Долги (Банк: ${playerDebts[username]} | Казино: ${casinoDebts[username]})`);
+        client.say(channel, `💰 @${username} | Казино: ${playerBalances[username]} 🪙 | Работа: ${workBalances[username]} 💵 | Банк: ${personalBankBalances[username]} 🪙 | Счёт бустов: ${boostShopBalances[username]} 🔮 | Долги (Банк: ${playerDebts[username]} | Казино: ${casinoDebts[username]})`);
         return;
     }
 
@@ -1056,7 +1085,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    if (lowerMessage === '!работа' || lowerMessage === '!work') {
+    if (lowerMessage === '!работать' || lowerMessage === '!work') {
         const currentJob = playerJobs[username];
         if (!currentJob) { 
             client.say(channel, `❌ Вы безработный! Выберите работу: !работы`); 
@@ -1077,7 +1106,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    if (lowerMessage.startsWith('!обменять крышки')) {
+    if (lowerMessage.startsWith('!обмен')) {
         const amount = parseInt(trimmedMessage.split(' ')[2]);
         if (isNaN(amount) || amount <= 0 || workBalances[username] < amount) {
             client.say(channel, `⚠️ Ошибка обмена. Проверьте личный счёт: ${workBalances[username]} 💵`);
