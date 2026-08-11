@@ -242,17 +242,17 @@ client.on('message', (channel, tags, message, self) => {
     const username = (tags['display-name'] || tags.username).toLowerCase();
     if (isBot(tags, username)) return;
 
+    // --- АВТО-ПРИВЕТСТВИЕ ---
+    if (!greetedUsers.has(username)) {
+        greetedUsers.add(username);
+        client.say(channel, `👋 Привет, @${username}! Добро пожаловать на стрим! Рады видеть тебя в чате!`);
+    }
+
     const trimmedMessage = message.trim();
     const lowerMessage = trimmedMessage.toLowerCase();
     
     const isMod = tags.mod || tags.badges?.broadcaster === '1' || username === 'qumosx' || username === 'gospod_bomzhik' || username === 'miss__krevetka' || username === 'r0ma_gr0m';
     const isBroadcaster = tags.badges?.broadcaster === '1' || username === 'qumosx' || username === 'gospod_bomzhik' || username === 'miss__krevetka' || username === 'r0ma_gr0m';
-
-    // --- АВТО-ПРИВЕТСТВИЕ ДЛЯ НОВЫХ ПОЛЬЗОВАТЕЛЕЙ ---
-    if (!greetedUsers.has(username)) {
-        greetedUsers.add(username);
-        client.say(channel, `Привет, @${username}! Добро пожаловать на стрим! 👋`);
-    }
 
     // Инициализация данных пользователя по умолчанию
     if (playerBalances[username] === undefined) playerBalances[username] = 100;
@@ -1488,4 +1488,3 @@ http.createServer((req, res) => {
 }).listen(PORT, () => {
     console.log(`HTTP сервер запущен на порту ${PORT}`);
 });
-```[cite: 4]
