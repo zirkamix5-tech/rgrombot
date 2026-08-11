@@ -157,7 +157,7 @@ setInterval(() => {
     });
 
     client.say('QumosX', `💰 Автоматическая выплата зарплат сотрудникам казино успешно проведена из фонда! Зарплаты зачислены на личные банковские счета 💵.`);
-}, 60 * 60 * 1000);
+}, 120 * 120 * 1000);
 
 // --- СИСТЕМА НАЧИСЛЕНИЯ КОММУНАЛЬНЫХ НАЛОГОВ (Каждый час для владельцев жилья) ---
 setInterval(() => {
@@ -303,7 +303,7 @@ client.on('message', (channel, tags, message, self) => {
             client.say(channel, `❌ @${username}, просмотр общего счёта всех банков доступен только Владельцу!`);
             return;
         }
-        client.say(channel, `📈 СЧЕТА БАНКОВ | Главный счет: ${mainBankBalance} 🪙 | Казино: ${casinoBank} 🪙 | Фонд ЗП казино: ${casinoSalaryFund} 🪙 | Магазин: ${storeBank} | Банк бустов: ${boostsBank} 🔮`);
+        client.say(channel, `📈 СЧЕТА БАНКОВ | Банк: ${mainBankBalance} 🪙 | Казино: ${casinoBank} 🪙 | Фонд ЗП казино: ${casinoSalaryFund} 🪙 | Магазин: ${storeBank} | Банк бустов: ${boostsBank} 🔮`);
         return;
     }
 
