@@ -242,11 +242,11 @@ client.on('message', (channel, tags, message, self) => {
     const username = (tags['display-name'] || tags.username).toLowerCase();
     if (isBot(tags, username)) return;
 
-    // --- АВТО-ПРИВЕТСТВИЕ ---
+   /* // --- АВТО-ПРИВЕТСТВИЕ ---
     if (!greetedUsers.has(username)) {
         greetedUsers.add(username);
         client.say(channel, `👋 Привет, @${username}! Добро пожаловать на стрим! Рады видеть тебя в чате!`);
-    }
+    } */
 
     const trimmedMessage = message.trim();
     const lowerMessage = trimmedMessage.toLowerCase();
@@ -651,13 +651,13 @@ client.on('message', (channel, tags, message, self) => {
     }
 
     // --- СИСТЕМА СЕКСА ---
-    if (lowerMessage.startsWith('!секс')) {
+    if (lowerMessage.startsWith('!заняться любовью')) {
         const parts = trimmedMessage.split(' ');
         const targetArg = parts[1]?.replace('@', '').toLowerCase();
         const optionArg = parts[2]?.toLowerCase();
 
         if (!targetArg) {
-            client.say(channel, `⚠️ Укажите партнера. Пример: !секс @Игрок [с презервативом / без]`);
+            client.say(channel, `⚠️ Укажите партнера. Пример: !заняться любовью @Игрок [с презервативом / без]`);
             return;
         }
 
@@ -683,7 +683,7 @@ client.on('message', (channel, tags, message, self) => {
             if (Math.random() < 0.4) {
                 playerChildren[username] = (playerChildren[username] || 0) + 1;
                 playerChildren[targetArg] = (playerChildren[targetArg] || 0) + 1;
-                client.say(channel, `🔥 У супругов @${username} и @${targetArg} была страстная ночь, и это привело к беременности! 👶 Поздравляем с пополнением в семье!`);
+                client.say(channel, `🔥 У супругов @${username} и @${targetArg} была страстная ночь и жаркая ночь и это привело к беременности! 👶 Поздравляем с пополнением в семье!`);
             } else {
                 client.say(channel, `🔥 У супругов @${username} и @${targetArg} была горячая ночь! Детей пока нет, но процесс очень понравился обоим. ❤️`);
             }
@@ -710,7 +710,7 @@ client.on('message', (channel, tags, message, self) => {
 
                     client.say(channel, `🔥 @${username} и @${targetArg} занялись дружеским сексом без презерватива... и это привело к залёту! 👶 У вас родился ребёнок! Хотите ли вы стать семьёй? (@${username} / @${targetArg} напишите !принять, чтобы создать семью, или !отказаться, чтобы отдать ребенка в приют)`);
                 } else {
-                    client.say(channel, `🔥 @${username} и @${targetArg} занялись дружеским сексом без презерватива, но на этот раз пронесло — обошлось без детей. 🎉`);
+                    client.say(channel, `🔥 @${username} и @${targetArg} Занялись дружеским сексом без презерватива, но на этот раз пронесло — обошлось без детей. 🎉`);
                 }
             }
             return;
