@@ -34,6 +34,8 @@ const marriageDates = {};            // marriageDates[username] = дата/вр�
 const pendingProposals = {};         // pendingProposals[targetUsername] = proposingUsername
 const marriageTimestamps = {};       // Точный timestamp свадьбы для проверки сроков детей
 const playerChildren = {};           // playerChildren[username] = количество детей
+const lastSexTime = {};              // Кулдаун для системы секса (24 часа)
+const pendingChildDecisions = {};    // pendingChildDecisions[username] = { partner, isMarriage } для выбора после рождения вне брака
 
 // --- СИСТЕМА УСИЛИТЕЛЕЙ (БУСТЕРОВ) ДЛЯ КАЗИНО ---
 const playerBoosts = {};             // playerBoosts[username] = { luck: 0, x2: 0, shield: 0 }
@@ -246,6 +248,12 @@ client.on('message', (channel, tags, message, self) => {
     const isMod = tags.mod || tags.badges?.broadcaster === '1' || username === 'qumosx' || username === 'gospod_bomzhik' || username === 'miss__krevetka' || username === 'r0ma_gr0m';
     const isBroadcaster = tags.badges?.broadcaster === '1' || username === 'qumosx' || username === 'gospod_bomzhik' || username === 'miss__krevetka' || username === 'r0ma_gr0m';
 
+    // --- АВТО-ПРИВЕТСТВИЕ ДЛЯ НОВЫХ ПОЛЬЗОВАТЕЛЕЙ ---
+    if (!greetedUsers.has(username)) {
+        greetedUsers.add(username);
+        client.say(channel, `Привет, @${username}! Добро пожаловать на стрим! 👋`);
+    }
+
     // Инициализация данных пользователя по умолчанию
     if (playerBalances[username] === undefined) playerBalances[username] = 100;
     if (personalBankBalances[username] === undefined) personalBankBalances[username] = 0;
@@ -393,8 +401,8 @@ client.on('message', (channel, tags, message, self) => {
 
     if (lowerMessage.startsWith('!снять банк') && isBroadcaster) {
         const parts = trimmedMessage.split(' ');
-        const bankType = parts[1]?.toLowerCase();
-        const amountArg = parts[2]?.toLowerCase();
+        const bankType = parts[2]?.toLowerCase();
+        const amountArg = parts[3]?.toLowerCase();
 
         if (!bankType) {
             client.say(channel, `⚠️ Укажите банк: !снять банк [казино / бусты / магазин / банк] [сумма / all]`);
@@ -435,6 +443,22 @@ client.on('message', (channel, tags, message, self) => {
 
         personalBankBalances[username] = (personalBankBalances[username] || 0) + amount;
         client.say(channel, `💸 Владелец @${username} снял ${amount} из (${targetName}) на свой личный банковский счет (+${amount} 💵)!`);
+        return;
+    }
+
+    if (lowerMessage === '!снять всё' && isBroadcaster) {
+        const total = mainBankBalance + casinoBank + boostsBank + storeBank;
+        if (total <= 0) {
+            client.say(channel, `⚠️ Ошибка! Во всех банках пусто.`);
+            return;
+        }
+        personalBankBalances[username] = (personalBankBalances[username] || 0) + total;
+        client.say(channel, `💸 Владелец @${username} обнулил все банки, забрав ${total} 💵 на свой личный счет!`);
+        
+        mainBankBalance = 0;
+        casinoBank = 0;
+        boostsBank = 0;
+        storeBank = 0;
         return;
     }
 
@@ -504,51 +528,84 @@ client.on('message', (channel, tags, message, self) => {
     }
 
     if (lowerMessage === '!принять' || lowerMessage === '!согласиться') {
+        // Проверяем, есть ли ожидающее предложение руки и сердца
         const proposer = pendingProposals[username];
-        if (!proposer) {
-            client.say(channel, `⚠️ Вам никто не делал предложений.`);
-            return;
-        }
+        if (proposer) {
+            if (playerMarriages[username] || playerMarriages[proposer]) {
+                delete pendingProposals[username];
+                client.say(channel, `❌ Кто-то из игроков уже состоит в браке.`);
+                return;
+            }
 
-        if (playerMarriages[username] || playerMarriages[proposer]) {
+            const weddingCost = 250;
+            if (personalBankBalances[proposer] < weddingCost) {
+                delete pendingProposals[username];
+                client.say(channel, `❌ У инициатора свадьбы (@${proposer}) больше нет ${weddingCost} 🪙 на личном банковском счете.`);
+                return;
+            }
+
+            personalBankBalances[proposer] -= weddingCost;
+            mainBankBalance += Math.floor(weddingCost * 0.5);
+
+            playerMarriages[proposer] = username;
+            playerMarriages[username] = proposer;
+            const dateStr = new Date().toLocaleDateString();
+            marriageDates[proposer] = dateStr;
+            marriageDates[username] = dateStr;
+            
+            const nowMs = Date.now();
+            marriageTimestamps[proposer] = nowMs;
+            marriageTimestamps[username] = nowMs;
+
             delete pendingProposals[username];
-            client.say(channel, `❌ Кто-то из игроков уже состоит в браке.`);
+            client.say(channel, `❤️ СЛАДКО! @${proposer} и @${username} Официально стали мужем и женой! 🎉 С праздником новую семью!`);
             return;
         }
 
-        const weddingCost = 250;
-        if (personalBankBalances[proposer] < weddingCost) {
-            delete pendingProposals[username];
-            client.say(channel, `❌ У инициатора свадьбы (@${proposer}) больше нет ${weddingCost} 🪙 на личном банковском счете.`);
+        // Проверяем, есть ли ожидающее решение по ребенку вне брака
+        const decisionData = pendingChildDecisions[username];
+        if (decisionData) {
+            const partner = decisionData.partner;
+            delete pendingChildDecisions[username];
+            delete pendingChildDecisions[partner];
+
+            playerMarriages[username] = partner;
+            playerMarriages[partner] = username;
+            const dateStr = new Date().toLocaleDateString();
+            marriageDates[username] = dateStr;
+            marriageDates[partner] = dateStr;
+            marriageTimestamps[username] = Date.now();
+            marriageTimestamps[partner] = Date.now();
+
+            playerChildren[username] = (playerChildren[username] || 0) + 1;
+            playerChildren[partner] = (playerChildren[partner] || 0) + 1;
+
+            client.say(channel, `❤️ @${username} и @${partner} решили создать семью ради ребёнка! Поздравляем новоиспечённых супругов и малыша! 👶💒`);
             return;
         }
 
-        personalBankBalances[proposer] -= weddingCost;
-        mainBankBalance += Math.floor(weddingCost * 0.5);
-
-        playerMarriages[proposer] = username;
-        playerMarriages[username] = proposer;
-        const dateStr = new Date().toLocaleDateString();
-        marriageDates[proposer] = dateStr;
-        marriageDates[username] = dateStr;
-        
-        const nowMs = Date.now();
-        marriageTimestamps[proposer] = nowMs;
-        marriageTimestamps[username] = nowMs;
-
-        delete pendingProposals[username];
-        client.say(channel, `❤️ СЛАДКО! @${proposer} и @${username} Официально стали мужем и женой! 🎉 С праздником новую семью!`);
+        client.say(channel, `⚠️ У вас нет активных предложений для принятия.`);
         return;
     }
 
     if (lowerMessage === '!отказаться' || lowerMessage === '!отклонить') {
         const proposer = pendingProposals[username];
-        if (!proposer) {
-            client.say(channel, `⚠️ Вам никто не делал предложений, чтобы от них отказываться.`);
+        if (proposer) {
+            delete pendingProposals[username];
+            client.say(channel, `💔 @${username} холодно отклонил(-а) предложение руки и сердца от @${proposer}. Свадьбы не будет!`);
             return;
         }
-        delete pendingProposals[username];
-        client.say(channel, `💔 @${username} холодно отклонил(-а) предложение руки и сердца от @${proposer}. Свадьбы не будет!`);
+
+        const decisionData = pendingChildDecisions[username];
+        if (decisionData) {
+            const partner = decisionData.partner;
+            delete pendingChildDecisions[username];
+            delete pendingChildDecisions[partner];
+            client.say(channel, `🏢 @${username} и @${partner} решили не создавать семью и отдали ребёнка в приют. Каждый идёт своей дорогой.`);
+            return;
+        }
+
+        client.say(channel, `⚠️ У вас нет активных предложений, чтобы от них отказываться.`);
         return;
     }
 
@@ -593,27 +650,71 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    if (lowerMessage === '!ребенок' || lowerMessage === '!родить' || lowerMessage === '!дети') {
-        const partner = playerMarriages[username];
-        if (!partner) {
-            client.say(channel, `❌ @${username}, Чтобы завести ребёнка, нужно сначала состоять в браке! (!свадьба @ник)`);
+    // --- СИСТЕМА СЕКСА ---
+    if (lowerMessage.startsWith('!секс')) {
+        const parts = trimmedMessage.split(' ');
+        const targetArg = parts[1]?.replace('@', '').toLowerCase();
+        const optionArg = parts[2]?.toLowerCase();
+
+        if (!targetArg) {
+            client.say(channel, `⚠️ Укажите партнера. Пример: !секс @Игрок [с презервативом / без]`);
             return;
         }
 
-        const mTime = marriageTimestamps[username] || 0;
-        const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-        const ageOfMarriage = Date.now() - mTime;
-
-        if (ageOfMarriage > SEVEN_DAYS_MS) {
-            client.say(channel, `❌ С момента вашей свадьбы прошло больше 7 дней. Возможность завести ребенка в первые дни брака упущена!`);
+        if (targetArg === username) {
+            client.say(channel, `❌ Нельзя заниматься сексом с самим собой!`);
             return;
         }
 
-        playerChildren[username] = (playerChildren[username] || 0) + 1;
-        playerChildren[partner] = (playerChildren[partner] || 0) + 1;
+        const now = Date.now();
+        const cooldown = 24 * 60 * 60 * 1000;
+        if (lastSexTime[username] && (now - lastSexTime[username] < cooldown)) {
+            client.say(channel, `⏳ @${username}, вы слишком устали. Попробуйте завтра.`);
+            return;
+        }
 
-        client.say(channel, `👶 Ура! В семье @${username} и @${partner} родился ребёнок! Теперь у вас в семье детей: ${playerChildren[username]}. Здоровья малышу! ❤️`);
-        return;
+        const isMarried = playerMarriages[username] === targetArg;
+
+        if (isMarried) {
+            // В браке: всегда шанс на ребенка (40%), презервативы не нужны
+            lastSexTime[username] = now;
+            lastSexTime[targetArg] = now;
+
+            if (Math.random() < 0.4) {
+                playerChildren[username] = (playerChildren[username] || 0) + 1;
+                playerChildren[targetArg] = (playerChildren[targetArg] || 0) + 1;
+                client.say(channel, `🔥 У супругов @${username} и @${targetArg} была страстная ночь, и это привело к беременности! 👶 Поздравляем с пополнением в семье!`);
+            } else {
+                client.say(channel, `🔥 У супругов @${username} и @${targetArg} была горячая ночь! Детей пока нет, но процесс очень понравился обоим. ❤️`);
+            }
+            return;
+        } else {
+            // Без брака: дружеский секс с выбором контрацепции
+            if (!optionArg || !['с', 'без', 'презерватив', 'без презерватива', 'презик'].includes(optionArg)) {
+                client.say(channel, `⚠️ Вы не в браке! Укажите использование презерватива. Пример: !секс @Игрок [с/без] (где 'с' — с презервативом, 'без' — без презерватива)`);
+                return;
+            }
+
+            const useCondom = ['с', 'презерватив', 'презик'].includes(optionArg);
+
+            lastSexTime[username] = now;
+            lastSexTime[targetArg] = now;
+
+            if (useCondom) {
+                client.say(channel, `🛡️ @${username} и @${targetArg} занялись дружеским сексом в презервативе. Всё прошло безопасно, шанс забеременеть нулевой! 😉`);
+            } else {
+                // Без презерватива: есть шанс забеременеть
+                if (Math.random() < 0.4) {
+                    pendingChildDecisions[username] = { partner: targetArg };
+                    pendingChildDecisions[targetArg] = { partner: username };
+
+                    client.say(channel, `🔥 @${username} и @${targetArg} занялись дружеским сексом без презерватива... и это привело к залёту! 👶 У вас родился ребёнок! Хотите ли вы стать семьёй? (@${username} / @${targetArg} напишите !принять, чтобы создать семью, или !отказаться, чтобы отдать ребенка в приют)`);
+                } else {
+                    client.say(channel, `🔥 @${username} и @${targetArg} занялись дружеским сексом без презерватива, но на этот раз пронесло — обошлось без детей. 🎉`);
+                }
+            }
+            return;
+        }
     }
 
     if (lowerMessage === '!развод') {
@@ -1058,7 +1159,6 @@ client.on('message', (channel, tags, message, self) => {
 
         playerBalances[username] -= bet;
 
-        // Колода карт для симуляции 5 случайных карт
         const suits = ['♠', '♣', '♥', '♦'];
         const ranks = ['6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
         
@@ -1069,7 +1169,6 @@ client.on('message', (channel, tags, message, self) => {
             hand.push(r + s);
         }
 
-        // Проверка совпадений (рангов) для определения комбинации
         let rankCounts = {};
         hand.forEach(card => {
             let r = card.slice(0, -1);
@@ -1081,19 +1180,19 @@ client.on('message', (channel, tags, message, self) => {
         let comboName = "Старшая карта (Проигрыш)";
 
         if (counts[0] === 4) {
-            rawWin = bet * 20; // Каре
+            rawWin = bet * 20;
             comboName = "Каре 🔥";
         } else if (counts[0] === 3 && counts[1] === 2) {
-            rawWin = bet * 10; // Фулл-хаус
+            rawWin = bet * 10;
             comboName = "Фулл-хаус 🎲";
         } else if (counts[0] === 3) {
-            rawWin = bet * 4; // Тройка (сет)
+            rawWin = bet * 4;
             comboName = "Тройка ✨";
         } else if (counts[0] === 2 && counts[1] === 2) {
-            rawWin = bet * 3; // Две пары
+            rawWin = bet * 3;
             comboName = "Две пары ✌️";
         } else if (counts[0] === 2) {
-            rawWin = bet * 1.5; // Пара
+            rawWin = bet * 1.5;
             comboName = "Пара 👍";
         }
 
@@ -1101,7 +1200,6 @@ client.on('message', (channel, tags, message, self) => {
             rawWin = Math.floor(rawWin);
             const tax = Math.max(1, Math.floor(rawWin * 0.1));
 
-            // Распределение налога по банкам (точно так же, как в казино)
             const bankShare = Math.max(1, Math.floor(tax * 0.5));
             casinoBank += (tax - bankShare);
             mainBankBalance += bankShare;
@@ -1128,8 +1226,8 @@ client.on('message', (channel, tags, message, self) => {
         }
 
         const args = trimmedMessage.split(' ');
-        const betArg = args[1];          // Сумма ставки
-        const targetArg = args[2]?.toLowerCase(); // На что ставит (красное, черное, зеленый / число 0-36)
+        const betArg = args[1];          
+        const targetArg = args[2]?.toLowerCase(); 
 
         let bet = betArg?.toLowerCase() === 'all' || betArg?.toLowerCase() === 'все' ? playerBalances[username] : parseInt(betArg);
 
@@ -1138,12 +1236,11 @@ client.on('message', (channel, tags, message, self) => {
             return;
         }
 
-        // Проверяем валидность цели ставки
         const redNumbers = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
         const blackNumbers = [2,4,6,8,10,11,13,15,17,20,22,24,26,28,29,31,33,35];
         
         let isValidBetTarget = false;
-        let targetType = ''; // 'red', 'black', 'green', 'number'
+        let targetType = ''; 
         let targetNum = null;
 
         if (['красное', 'red', 'красный'].includes(targetArg)) {
@@ -1172,13 +1269,11 @@ client.on('message', (channel, tags, message, self) => {
 
         playerBalances[username] -= bet;
 
-        // Вращаем рулетку (от 0 до 36)
         const rolledNumber = Math.floor(Math.random() * 37);
         let rolledColor = '🟢 зеленый (0)';
         if (redNumbers.includes(rolledNumber)) rolledColor = '🔴 красное';
         else if (blackNumbers.includes(rolledNumber)) rolledColor = '⚫ чёрное';
 
-        // Проверяем выигрыш
         let isWin = false;
         let rawWin = 0;
 
@@ -1190,10 +1285,10 @@ client.on('message', (channel, tags, message, self) => {
             rawWin = bet * 2;
         } else if (targetType === 'green' && rolledNumber === 0) {
             isWin = true;
-            rawWin = bet * 14; // Зеро на цвет/зеленый (если обобщенно)
+            rawWin = bet * 14; 
         } else if (targetType === 'number' && targetNum === rolledNumber) {
             isWin = true;
-            rawWin = bet * 35; // Чистая ставка на точное число в рулетке х35
+            rawWin = bet * 35; 
         }
 
         if (isWin) {
@@ -1393,3 +1488,4 @@ http.createServer((req, res) => {
 }).listen(PORT, () => {
     console.log(`HTTP сервер запущен на порту ${PORT}`);
 });
+```[cite: 4]
