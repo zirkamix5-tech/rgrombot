@@ -580,13 +580,13 @@ client.on('message', (channel, tags, message, self) => {
         }
 
         if (marriageList.length === 0) {
-            client.say(channel, `🏆 На канале пока нет зарегистрированных браков! Создайте семью через !свадьба @ник`);
+            client.say(channel, `🏆 Эх, ещё нету пар`);
             return;
         }
 
-        let topText = `🏆 ТОП СЕМЕЙНЫХ ПАР: `;
-        marriageList.slice(0, 5).forEach((m, index) => {
-            const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
+        let topText = `🏆 ТОП БРАКОВ.: `;
+        marriageList.slice(0, 10).forEach((m, index) => {
+            const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6⃣', '7⃣', '8⃣', '9⃣', '🔟'];
             topText += `${medals[index]} @${m.user1} ❤️ @${m.user2} (📅 С ${m.date}) | `;
         });
         client.say(channel, topText);
@@ -596,7 +596,7 @@ client.on('message', (channel, tags, message, self) => {
     if (lowerMessage === '!ребенок' || lowerMessage === '!родить' || lowerMessage === '!дети') {
         const partner = playerMarriages[username];
         if (!partner) {
-            client.say(channel, `❌ @${username}, чтобы завести ребёнка, нужно сначала состоять в браке! (!свадьба @ник)`);
+            client.say(channel, `❌ @${username}, Чтобы завести ребёнка, нужно сначала состоять в браке! (!свадьба @ник)`);
             return;
         }
 
