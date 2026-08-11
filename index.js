@@ -16,6 +16,7 @@ const client = new tmi.client(opts);
 
 // --- СОСТОЯНИЕ И ДАННЫЕ БОТА ---
 const greetedUsers = new Set();      // Список поприветствованных за сессию
+const persistentGreetedUsers = new Set(); // Постоянный список поприветствованных (сохраняется для игнорирования после перезапуска)
 const playerBalances = {};           // Балансы игроков (КРЫШКИ для казино)
 const shopBalances = {};             // Балансы обычных очков магазина
 const boostShopBalances = {};        // Отдельный счет для покупки бустов
@@ -35,6 +36,7 @@ const pendingProposals = {};         // pendingProposals[targetUsername] = propo
 const marriageTimestamps = {};       // Точный timestamp свадьбы для проверки сроков детей
 const playerChildren = {};           // playerChildren[username] = количество детей
 const lastChildTime = {};            // Кулдаун для системы детей (24 часа)
+const familyVaults = {};             // familyVaults[familyKey] = amount (семейный сейф для каждой пары)
 
 // --- СИСТЕМА ИГР МЕЖДУ ИГРОКАМИ (ДУЭЛИ / СТАВКИ) ---
 const pendingDuels = {};             // pendingDuels[targetUsername] = { challenger, amount, gameType }
@@ -230,6 +232,15 @@ const knownBots = new Set([
     'Streamlabs', 'WizeBot', 'Coebot', 'Phantombot', 'AlippBot', 'BotRix', 'AlerterBot'
 ]);
 
+function самСдоровался(username) {
+    return greetedUsers.has(username) || persistentGreetedUsers.has(username);
+}
+
+function отметитьСдоровавшимся(username) {
+    greetedUsers.add(username);
+    persistentGreetedUsers.add(username);
+}
+
 function isBot(tags, username) {
     const lowerUser = username.toLowerCase();
     if (knownBots.has(lowerUser)) return true;
@@ -249,6 +260,13 @@ client.on('message', (channel, tags, message, self) => {
     
     const isMod = tags.mod || tags.badges?.broadcaster === '1' || username === 'qumosx' || username === 'gospod_bomzhik' || username === 'miss__krevetka' || username === 'r0ma_gr0m';
     const isBroadcaster = tags.badges?.broadcaster === '1' || username === 'qumosx' || username === 'gospod_bomzhik' || username === 'miss__krevetka' || username === 'r0ma_gr0m';
+
+    // Пример автоматического приветствия (если где-то встроено или вызывается)
+    // Пример интеграции проверки:
+    if (!самСдоровался(username)) {
+        отметитьСдоровавшимся(username);
+        // client.say(channel, `Привет, @${username}!`); // Авто-приветствие можно кастомизировать здесь, если нужно
+    }
 
     // Инициализация данных пользователя по умолчанию
     if (playerBalances[username] === undefined) playerBalances[username] = 100;
@@ -695,6 +713,81 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
+    // --- НОВЫЕ КОМАНДЫ ДЛЯ СЕМЬИ: !поцеловать, !обнять ---
+    if (lowerMessage.startsWith('!поцеловать')) {
+        const partner = playerMarriages[username];
+        if (!partner) {
+            client.say(channel, `❌ @${username}, вы не состоите в браке, некого целовать!`);
+            return;
+        }
+        client.say(channel, `💋 @${username} нежно и страстно целует свою вторую половинку — @${partner}! ❤️`);
+        return;
+    }
+
+    if (lowerMessage.startsWith('!обнять')) {
+        const partner = playerMarriages[username];
+        if (!partner) {
+            client.say(channel, `❌ @${username}, у вас нет пары для объятий.`);
+            return;
+        }
+        client.say(channel, `🤗 @${username} крепко-крепко обнимает своего любимого мужа/жену — @${partner}! 🥰`);
+        return;
+    }
+
+    // --- СЕМЕЙНЫЙ СЕЙФ ---
+    if (lowerMessage.startsWith('!сейф')) {
+        const partner = playerMarriages[username];
+        if (!partner) {
+            client.say(channel, `❌ @${username}, семейный сейф доступен только тем, кто состоит в браке!`);
+            return;
+        }
+
+        // Формируем уникальный ключ семьи для сейфа (сортируем имена по алфавиту)
+        const familyKey = [username, partner].sort().join('_');
+        if (familyVaults[familyKey] === undefined) {
+            familyVaults[familyKey] = 0;
+        }
+
+        const args = trimmedMessage.split(' ');
+        const action = args[1]?.toLowerCase();
+        const amount = parseInt(args[2]);
+
+        if (!action || (action !== 'баланс' && isNaN(amount))) {
+            client.say(channel, `⚠️ Использование: !сейф баланс | !сейф положить [сумма] | !сейф взять [сумма]`);
+            return;
+        }
+
+        if (action === 'баланс') {
+            client.say(channel, `🔐 Семейный сейф (@${username} & @${partner}): ${familyVaults[familyKey]} 🪙 крышек.`);
+            return;
+        }
+
+        if (action === 'положить') {
+            if (amount <= 0 || playerBalances[username] < amount) {
+                client.say(channel, `❌ Неверная сумма или недостаточно КРЫШЕК на руках! Ваш баланс: ${playerBalances[username]} 🪙`);
+                return;
+            }
+            playerBalances[username] -= amount;
+            familyVaults[familyKey] += amount;
+            client.say(channel, `💼 @${username} положил(-а) ${amount} 🪙 в семейный сейф. Баланс сейфа: ${familyVaults[familyKey]} 🪙`);
+            return;
+        }
+
+        if (action === 'взять') {
+            if (amount <= 0 || familyVaults[familyKey] < amount) {
+                client.say(channel, `❌ Неверная сумма или в семейном сейфе недостаточно средств! В сейфе: ${familyVaults[familyKey]} 🪙`);
+                return;
+            }
+            familyVaults[familyKey] -= amount;
+            playerBalances[username] += amount;
+            client.say(channel, `🏧 @${username} забрал(-а) ${amount} 🪙 из семейного сейфа. Остаток в сейфе: ${familyVaults[familyKey]} 🪙`);
+            return;
+        }
+
+        client.say(channel, `⚠️ Неверное действие. Используйте: !сейф баланс, !сейф положить [сумма], !сейф взять [сумма]`);
+        return;
+    }
+
     if (lowerMessage === '!семья' || lowerMessage === '!пара' || lowerMessage === '!бракпрофиль') {
         const partner = playerMarriages[username];
         if (!partner) {
@@ -703,7 +796,9 @@ client.on('message', (channel, tags, message, self) => {
         }
         const date = marriageDates[username] || 'неизвестно';
         const kidsCount = playerChildren[username] || 0;
-        client.say(channel, `💒 Семья: @${username} ❤️ @${partner} | В браке с: ${date} | Детей: ${kidsCount}`);
+        const familyKey = [username, partner].sort().join('_');
+        const vaultBalance = familyVaults[familyKey] || 0;
+        client.say(channel, `💒 Семья: @${username} ❤️ @${partner} | В браке с: ${date} | Детей: ${kidsCount} | Семейный сейф: ${vaultBalance} 🪙`);
         return;
     }
 
