@@ -1036,6 +1036,80 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
+    // --- ПОКЕР (МИНИ-ИГРА НА КОМБИНАЦИИ С НАЛОГАМИ В БАНКИ) ---
+    if (lowerMessage.startsWith('!покер')) {
+        if (playerBalances[username] <= 0) {
+            client.say(channel, `❌ @${username}, у вас 0 КРЫШКИ! Заработайте их на работе (!работы).`);
+            return;
+        }
+
+        const args = trimmedMessage.split(' ');
+        let bet = args[1]?.toLowerCase() === 'all' || args[1]?.toLowerCase() === 'все' ? playerBalances[username] : parseInt(args[1]);
+
+        if (isNaN(bet) || bet <= 0 || playerBalances[username] < bet) {
+            client.say(channel, `⚠️ @${username}, неверная ставка для покера. Пример: !покер 50`);
+            return;
+        }
+
+        playerBalances[username] -= bet;
+
+        // Колода карт для симуляции 5 случайных карт
+        const suits = ['♠', '♣', '♥', '♦'];
+        const ranks = ['6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+        
+        let hand = [];
+        for (let i = 0; i < 5; i++) {
+            let r = ranks[Math.floor(Math.random() * ranks.length)];
+            let s = suits[Math.floor(Math.random() * suits.length)];
+            hand.push(r + s);
+        }
+
+        // Проверка совпадений (рангов) для определения комбинации
+        let rankCounts = {};
+        hand.forEach(card => {
+            let r = card.slice(0, -1);
+            rankCounts[r] = (rankCounts[r] || 0) + 1;
+        });
+
+        let counts = Object.values(rankCounts).sort((a, b) => b - a);
+        let rawWin = 0;
+        let comboName = "Старшая карта (Проигрыш)";
+
+        if (counts[0] === 4) {
+            rawWin = bet * 20; // Каре
+            comboName = "Каре 🔥";
+        } else if (counts[0] === 3 && counts[1] === 2) {
+            rawWin = bet * 10; // Фулл-хаус
+            comboName = "Фулл-хаус 🎲";
+        } else if (counts[0] === 3) {
+            rawWin = bet * 4; // Тройка (сет)
+            comboName = "Тройка ✨";
+        } else if (counts[0] === 2 && counts[1] === 2) {
+            rawWin = bet * 3; // Две пары
+            comboName = "Две пары ✌️";
+        } else if (counts[0] === 2) {
+            rawWin = bet * 1.5; // Пара
+            comboName = "Пара 👍";
+        }
+
+        if (rawWin > 0) {
+            rawWin = Math.floor(rawWin);
+            const tax = Math.max(1, Math.floor(rawWin * 0.1));
+
+            // Распределение налога по банкам (точно так же, как в казино)
+            const bankShare = Math.max(1, Math.floor(tax * 0.5));
+            casinoBank += (tax - bankShare);
+            mainBankBalance += bankShare;
+
+            const win = rawWin - tax;
+            playerBalances[username] += win;
+            client.say(channel, `🃏 ПОКЕР | @${username} [ ${hand.join(' ')} ] — ${comboName}! Выигрыш: +${win} 🪙 | Баланс: ${playerBalances[username]} 🪙`);
+        } else {
+            client.say(channel, `🃏 ПОКЕР | @${username} [ ${hand.join(' ')} ] — ${comboName}. Увы, ставка сгорела. Баланс: ${playerBalances[username]} 🪙`);
+        }
+        return;
+    }
+
     // --- 12. ПРОФИЛЬ, БАЛАНС И СТАТИСТИКА ИГРОКА ---
     if (lowerMessage.startsWith('!статистика') || lowerMessage.startsWith('!профиль') || lowerMessage.startsWith('!стат')) {
         const args = trimmedMessage.split(' ');
