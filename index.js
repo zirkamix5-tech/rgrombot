@@ -160,7 +160,7 @@ setInterval(() => {
     });
 
     client.say('QumosX', `💰 Автоматическая выплата зарплат сотрудникам казино успешно проведена из фонда! Зарплаты зачислены на личные банковские счета 💵.`);
-}, 120 * 120 * 1000);
+}, 60 * 60 * 1000);
 
 // --- СИСТЕМА НАЧИСЛЕНИЯ КОММУНАЛЬНЫХ НАЛОГОВ (Каждый час для владельцев жилья) ---
 setInterval(() => {
@@ -179,7 +179,7 @@ setInterval(() => {
             playerUtilities[username].light += 35;
         }
     }
-}, 120 * 120 * 1000);
+}, 60 * 60 * 1000);
 
 // --- СИСТЕМА РАБОТЫ И ИМУЩЕСТВА ---
 const playerJobs = {};               
@@ -199,7 +199,7 @@ const JOBS_DATA = {
     'Мастер маникюра': { salary: 700, cooldown: 60 * 60 * 1000, req: 1000 },
     'Официант': { salary: 700, cooldown: 60 * 60 * 1000, req: 1000 },
     'Программист': { salary: 800, cooldown: 100 * 60 * 1000, req: 500 },
-    'Домашний-кондитер': { salary: 900, cooldown: 120 * 120 * 1000, req: 1000 },
+    'Домашний-кондитер': { salary: 900, cooldown: 60 * 60 * 1000, req: 1000 },
     'Шеф-Повар': { salary: 1200, cooldown: 60 * 60 * 1000, req: 1000 },
     'Су-шеф': { salary: 2000, cooldown: 60 * 60 * 1000, req:  1000 },
     'Модель': { salary: 2300, cooldown: 60 * 60 * 1000, req: 2700 },
@@ -244,12 +244,6 @@ client.on('message', (channel, tags, message, self) => {
     const username = (tags['display-name'] || tags.username).toLowerCase();
     if (isBot(tags, username)) return;
 
-  /*  // --- АВТО-ПРИВЕТСТВИЕ ---
-    if (!greetedUsers.has(username)) {
-        greetedUsers.add(username);
-        client.say(channel, `👋 Привет, @${username}! Добро пожаловать на стрим! Рады видеть тебя в чате!`);
-    }*/
-
     const trimmedMessage = message.trim();
     const lowerMessage = trimmedMessage.toLowerCase();
     
@@ -276,13 +270,13 @@ client.on('message', (channel, tags, message, self) => {
     if (lowerMessage === '!каз открыть' && isMod) {
         isCasinoOpen = true;
         manualOverride = true;
-        client.say(channel, `🟢 Сотрудник казино @${username}!, открывает его в ручную. КАЗИНО ОТКРЫТО!`);
+        client.say(channel, `🟢 Сотрудник казино @${username}!, открывает его вручную. КАЗИНО ОТКРЫТО!`);
         return;
     }
     if (lowerMessage === '!каз закрыть' && isMod) {
         isCasinoOpen = false;
         manualOverride = true;
-        client.say(channel, `🔴 Сотрудник казино @${username}!, в ручную закрывает его. КАЗИНО ЗАКРЫТО!`);
+        client.say(channel, `🔴 Сотрудник казино @${username}!, вручную закрывает его. КАЗИНО ЗАКРЫТО!`);
         return;
     }
 
@@ -497,7 +491,7 @@ client.on('message', (channel, tags, message, self) => {
     }
 
     // --- 3.1. ДУЭЛИ И ИГРЫ МЕЖДУ ИГРОКАМИ (ПОКЕР, РУЛЕТКА, КАЗИНО) ---
-    if (lowerMessage.startsWith('!казпати') || lowerMessage.startsWith('!патиказ')) {
+    if (lowerMessage.startsWith('!казпати') || lowerMessage.startsWith('!патиказ') || lowerMessage.startsWith('!дуэль')) {
         const parts = trimmedMessage.split(' ');
         const targetArg = parts[1]?.replace('@', '').toLowerCase();
         const gameType = parts[2]?.toLowerCase() || 'покер';
@@ -524,7 +518,7 @@ client.on('message', (channel, tags, message, self) => {
         }
 
         pendingDuels[targetArg] = { challenger: username, amount, gameType };
-        client.say(channel, `⚔️ @${username} вызывает @${targetArg} на дуэль в режиме **${gametype}** на ставку ${amount} 🪙! Чтобы принять вызов, напишите: !принятьдуэль`);
+        client.say(channel, `⚔️ @${username} вызывает @${targetArg} на дуэль в режиме **${gameType}** на ставку ${amount} 🪙! Чтобы принять вызов, напишите: !принятьдуэль`);
         return;
     }
 
@@ -560,7 +554,6 @@ client.on('message', (channel, tags, message, self) => {
         let loser = '';
 
         if (gameType === 'покер') {
-            // Простая имитация карточного сравнения для двух игроков
             const score1 = Math.random();
             const score2 = Math.random();
             if (score1 > score2) {
@@ -570,7 +563,6 @@ client.on('message', (channel, tags, message, self) => {
                 winner = username;
                 loser = challenger;
             } else {
-                // Ничья — возвращаем ставки
                 playerBalances[challenger] += amount;
                 playerBalances[username] += amount;
                 client.say(channel, `🤝 Дуэль между @${challenger} и @${username} в покер закончилась ничьей! Ставки возвращены.`);
@@ -594,7 +586,6 @@ client.on('message', (channel, tags, message, self) => {
                 return;
             }
         } else {
-            // казино / кости
             const roll1 = Math.floor(Math.random() * 6) + Math.floor(Math.random() * 6);
             const roll2 = Math.floor(Math.random() * 6) + Math.floor(Math.random() * 6);
             if (roll1 > roll2) {
@@ -650,7 +641,7 @@ client.on('message', (channel, tags, message, self) => {
         }
 
         pendingProposals[targetArg] = username;
-        client.say(channel, `💍 @${username} Вставая на правое колено, делает предложение руки и сердца @${targetArg}! Чтобы согласиться, напишите: !принять. Чтобы отказаться: !отказаться`);
+        client.say(channel, `💍 @${username} вставая на правое колено, делает предложение руки и сердца @${targetArg}! Чтобы согласиться, напишите: !принять. Чтобы отказаться: !отказаться`);
         return;
     }
 
@@ -688,7 +679,7 @@ client.on('message', (channel, tags, message, self) => {
         marriageTimestamps[username] = nowMs;
 
         delete pendingProposals[username];
-        client.say(channel, `❤️ СЛАДКО! @${proposer} и @${username} Официально стали мужем и женой! 🎉 С праздником новую семью!`);
+        client.say(channel, `❤️ СЛАДКО! @${proposer} и @${username} официально стали мужем и женой! 🎉 С праздником новую семью!`);
         return;
     }
 
@@ -736,7 +727,7 @@ client.on('message', (channel, tags, message, self) => {
             return;
         }
 
-        let topText = `🏆 ТОП БРАКОВ.: `;
+        let topText = `🏆 ТОП БРАКОВ: `;
         marriageList.slice(0, 10).forEach((m, index) => {
             const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6⃣', '7⃣', '8⃣', '9⃣', '🔟'];
             topText += `${medals[index]} @${m.user1} ❤️ @${m.user2} (📅 С ${m.date}) | `;
@@ -793,7 +784,7 @@ client.on('message', (channel, tags, message, self) => {
         delete playerChildren[username];
         delete playerChildren[partner];
 
-        client.say(channel, `💔 @${username} и @${partner} Эта прекрасная пара развелась, каждый идёт своей дорогой!`);
+        client.say(channel, `💔 @${username} и @${partner} эта прекрасная пара развелась, каждый идёт своей дорогой!`);
         return;
     }
 
@@ -854,7 +845,7 @@ client.on('message', (channel, tags, message, self) => {
 
     if (lowerMessage.startsWith('!вернуть долг') || lowerMessage.startsWith('!долгказик')) {
         const args = trimmedMessage.split(' ');
-        let amount = args[1]?.toLowerCase() === 'all' || args[1]?.toLowerCase() === 'все' ? casinoDebts[username] : parseInt(args[1]);
+        let amount = args[2]?.toLowerCase() === 'all' || args[2]?.toLowerCase() === 'все' ? casinoDebts[username] : parseInt(args[2]);
         const currentDebt = casinoDebts[username];
 
         if (isNaN(amount) || amount <= 0 || currentDebt <= 0) {
@@ -909,7 +900,7 @@ client.on('message', (channel, tags, message, self) => {
             .slice(0, 5);
 
         if (sortedPlayers.length === 0) {
-            client.say(channel, `🏆 Топ пустой! Займи первое местой сам. (!каз)`);
+            client.say(channel, `🏆 Топ пустой! Займи первое место сам. (!каз)`);
             return;
         }
 
@@ -1061,7 +1052,7 @@ client.on('message', (channel, tags, message, self) => {
             playerUtilities[username].water += 50;
             playerUtilities[username].gas += 60;
             playerUtilities[username].light += 75;
-            client.say(channel, `🏠 Поздравляем с покупкой жилья! Следите за комунальными услугами (!коммуналка).`);
+            client.say(channel, `🏠 Поздравляем с покупкой жилья! Следите за коммунальными услугами (!коммуналка).`);
         }
 
         client.say(channel, `🛍️ Поздравляем, @${username}! Вы купили "${itemName}" за ${item.price} 💵 с личного счета в банке!`);
@@ -1074,7 +1065,7 @@ client.on('message', (channel, tags, message, self) => {
         Object.entries(CASINO_BOOSTS).forEach(([bName, bData]) => {
             text += `[${bName}] — ${bData.price} очков (${bData.desc}) | `;
         });
-        client.say(channel, text + `Купить: !газбуст [название] | Ваш счет: !счётбустов`);
+        client.say(channel, text + `Купить: !купитьбуст [название] | Ваш счет: !счётбустов`);
         return;
     }
 
@@ -1094,7 +1085,7 @@ client.on('message', (channel, tags, message, self) => {
         const boostData = CASINO_BOOSTS[boostKey];
 
         if (!boostData) {
-            client.say(channel, `❌ Такого усилителя нет! Каталог: !бустышоп`);
+            client.say(channel, `❌ Такого усилителя нет! Каталог: !бустшоп`);
             return;
         }
 
@@ -1117,7 +1108,7 @@ client.on('message', (channel, tags, message, self) => {
     // --- 11. КАЗИНО ---
     if (lowerMessage.startsWith('!каз')) {
         if (!isCasinoOpen) {
-            client.say(channel, `⏳ Казино сейчас закрыто. Приходите позже, после.`);
+            client.say(channel, `⏳ Казино сейчас закрыто. Приходите позже.`);
             return;
         }
 
@@ -1170,7 +1161,7 @@ client.on('message', (channel, tags, message, self) => {
             const win = rawWin - tax;
             playerBalances[username] += win;
             shopBalances[username] += Math.floor(bet / 2);
-            client.say(channel, `🎰 ДЖЕКПOT! @${username} (${r1} ${r2} ${r3}) выиграл +${win} КРЫШКИ! Баланс: ${playerBalances[username]} 🪙`);
+            client.say(channel, `🎰 ДЖЕКПОТ! @${username} (${r1} ${r2} ${r3}) выиграл +${win} КРЫШЕК! Баланс: ${playerBalances[username]} 🪙`);
         } else if (r1 === r2 || r2 === r3 || r1 === r3) {
             let rawWin = Math.floor(bet * 2.5 * winMultiplier);
             const tax = Math.max(1, Math.floor(rawWin * 0.1));
@@ -1182,7 +1173,7 @@ client.on('message', (channel, tags, message, self) => {
             const win = rawWin - tax;
             playerBalances[username] += win;
             shopBalances[username] += 2;
-            client.say(channel, `✨ Пара (${r1} ${r2} ${r3})! @${username} выиграл +${win} КРЫШКИ! Баланс: ${playerBalances[username]} 🪙`);
+            client.say(channel, `✨ Пара (${r1} ${r2} ${r3})! @${username} выиграл +${win} КРЫШЕК! Баланс: ${playerBalances[username]} 🪙`);
         } else {
             if (boosts.shield > 0) {
                 boosts.shield--;
@@ -1205,7 +1196,7 @@ client.on('message', (channel, tags, message, self) => {
         }
 
         if (playerBalances[username] <= 0) {
-            client.say(channel, `❌ @${username}, у вас 0 КРЫШКИ! Заработайте их на работе (!работы).`);
+            client.say(channel, `❌ @${username}, у вас 0 КРЫШЕК! Заработайте их на работе (!работы).`);
             return;
         }
 
@@ -1548,4 +1539,3 @@ http.createServer((req, res) => {
 }).listen(PORT, () => {
     console.log(`HTTP сервер запущен на порту ${PORT}`);
 });
-```[cite: 6]
