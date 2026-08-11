@@ -989,11 +989,10 @@ client.on('message', (channel, tags, message, self) => {
             winMultiplier = 2;
         }
 
-        const symbols = ['🍒', '🍋', '🔔', '⭐', '💎', '7️⃣', '💩', '🥐', '🍩', '🛑', '🎲', '🚽', '🧊'];
+        const symbols = ['🍒', '🍋', '🔔', '⭐', '💎', '7️⃣', '💩', '🥐', '🍩', '🛑', '🎲', '🚽', '🧊', '🍪', '🩸', '🚬'];
         let r1 = symbols[Math.floor(Math.random() * symbols.length)];
         let r2 = symbols[Math.floor(Math.random() * symbols.length)];
         let r3 = symbols[Math.floor(Math.random() * symbols.length)];
-        let r4 = symbols[Math.floor(Math.random() * symbols.length)];
 
         if (winChanceBonus > 0 && r1 !== r2 && r2 !== r3 && r1 !== r3) {
             if (Math.random() < 0.5) r2 = r1;
