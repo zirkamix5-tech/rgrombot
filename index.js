@@ -1021,7 +1021,7 @@ client.on('message', (channel, tags, message, self) => {
             const win = rawWin - tax;
             playerBalances[username] += win;
             shopBalances[username] += 2;
-            client.say(channel, `✨ Пара (${r1} ${r2} ${r3}) ${r4}! @${username} выиграл +${win} КРЫШКИ! Баланс: ${playerBalances[username]} 🪙`);
+            client.say(channel, `✨ Пара (${r1} ${r2} ${r3} ${r4})! @${username} выиграл +${win} КРЫШКИ! Баланс: ${playerBalances[username]} 🪙`);
         } else {
             if (boosts.shield > 0) {
                 boosts.shield--;
