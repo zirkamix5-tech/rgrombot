@@ -36,6 +36,9 @@ const marriageTimestamps = {};       // Точный timestamp свадьбы д
 const playerChildren = {};           // playerChildren[username] = количество детей
 const lastChildTime = {};            // Кулдаун для системы детей (24 часа)
 
+// --- СИСТЕМА ИГР МЕЖДУ ИГРОКАМИ (ДУЭЛИ / СТАВКИ) ---
+const pendingDuels = {};             // pendingDuels[targetUsername] = { challenger, amount, gameType }
+
 // --- СИСТЕМА УСИЛИТЕЛЕЙ (БУСТЕРОВ) ДЛЯ КАЗИНО ---
 const playerBoosts = {};             // playerBoosts[username] = { luck: 0, x2: 0, shield: 0 }
 
@@ -490,6 +493,131 @@ client.on('message', (channel, tags, message, self) => {
         playerBalances[targetArg] += amount;
 
         client.say(channel, `🤝 @${username} успешно передал ${amount} 🪙 крышек игроку @${targetArg}!`);
+        return;
+    }
+
+    // --- 3.1. ДУЭЛИ И ИГРЫ МЕЖДУ ИГРОКАМИ (ПОКЕР, РУЛЕТКА, КАЗИНО) ---
+    if (lowerMessage.startsWith('!казпати') || lowerMessage.startsWith('!патиказ')) {
+        const parts = trimmedMessage.split(' ');
+        const targetArg = parts[1]?.replace('@', '').toLowerCase();
+        const gameType = parts[2]?.toLowerCase() || 'покер';
+        const amount = parseInt(parts[3]);
+
+        if (!targetArg || isNaN(amount) || amount <= 0) {
+            client.say(channel, `⚠️ Использование: !дуэль @ник [покер/рулетка/казино] [ставка]. Пример: !дуэль @Игрок покер 100`);
+            return;
+        }
+
+        if (targetArg === username) {
+            client.say(channel, `❌ Нельзя играть с самим собой.`);
+            return;
+        }
+
+        if (!['покер', 'рулетка', 'казино'].includes(gameType)) {
+            client.say(channel, `❌ Неверный режим игры! Доступно: покер, рулетка, казино.`);
+            return;
+        }
+
+        if (playerBalances[username] < amount) {
+            client.say(channel, `❌ У вас недостаточно КРЫШЕК для такой ставки! Ваш баланс: ${playerBalances[username]} 🪙`);
+            return;
+        }
+
+        pendingDuels[targetArg] = { challenger: username, amount, gameType };
+        client.say(channel, `⚔️ @${username} вызывает @${targetArg} на дуэль в режиме **${gametype}** на ставку ${amount} 🪙! Чтобы принять вызов, напишите: !принятьдуэль`);
+        return;
+    }
+
+    if (lowerMessage === '!принятьдуэль' || lowerMessage === '!согласитьсянадуэль') {
+        const duelData = pendingDuels[username];
+        if (!duelData) {
+            client.say(channel, `⚠️ У вас нет активных вызовов на дуэль.`);
+            return;
+        }
+
+        const challenger = duelData.challenger;
+        const amount = duelData.amount;
+        const gameType = duelData.gameType;
+
+        delete pendingDuels[username];
+
+        if (playerBalances[challenger] < amount) {
+            client.say(channel, `❌ У инициатора дуэли (@${challenger}) больше нет нужной суммы КРЫШЕК.`);
+            return;
+        }
+
+        if (playerBalances[username] < amount) {
+            client.say(channel, `❌ У вас недостаточно КРЫШЕК для принятия дуэли (${amount} 🪙).`);
+            return;
+        }
+
+        // Списываем ставки с обоих
+        playerBalances[challenger] -= amount;
+        playerBalances[username] -= amount;
+        const totalPot = amount * 2;
+
+        let winner = '';
+        let loser = '';
+
+        if (gameType === 'покер') {
+            // Простая имитация карточного сравнения для двух игроков
+            const score1 = Math.random();
+            const score2 = Math.random();
+            if (score1 > score2) {
+                winner = challenger;
+                loser = username;
+            } else if (score2 > score1) {
+                winner = username;
+                loser = challenger;
+            } else {
+                // Ничья — возвращаем ставки
+                playerBalances[challenger] += amount;
+                playerBalances[username] += amount;
+                client.say(channel, `🤝 Дуэль между @${challenger} и @${username} в покер закончилась ничьей! Ставки возвращены.`);
+                return;
+            }
+        } else if (gameType === 'рулетка') {
+            const roll1 = Math.floor(Math.random() * 37);
+            const roll2 = Math.floor(Math.random() * 37);
+            if (roll1 > roll2) {
+                winner = challenger;
+                loser = username;
+                client.say(channel, `🎯 Рулетка дуэли: @${challenger} выбил ${roll1}, а @${username} выбил ${roll2}.`);
+            } else if (roll2 > roll1) {
+                winner = username;
+                loser = challenger;
+                client.say(channel, `🎯 Рулетка дуэли: @${username} выбил ${roll2}, а @${challenger} выбил ${roll1}.`);
+            } else {
+                playerBalances[challenger] += amount;
+                playerBalances[username] += amount;
+                client.say(channel, `🎯 Рулетка дуэли: Ничья (${roll1}:${roll2})! Ставки возвращены.`);
+                return;
+            }
+        } else {
+            // казино / кости
+            const roll1 = Math.floor(Math.random() * 6) + Math.floor(Math.random() * 6);
+            const roll2 = Math.floor(Math.random() * 6) + Math.floor(Math.random() * 6);
+            if (roll1 > roll2) {
+                winner = challenger;
+                loser = username;
+            } else if (roll2 > roll1) {
+                winner = username;
+                loser = challenger;
+            } else {
+                playerBalances[challenger] += amount;
+                playerBalances[username] += amount;
+                client.say(channel, `🎲 Бросок кубиков в казино между @${challenger} и @${username}: Ничья! Ставки возвращены.`);
+                return;
+            }
+        }
+
+        const tax = Math.floor(totalPot * 0.1);
+        const netWin = totalPot - tax;
+        casinoBank += Math.floor(tax / 2);
+        mainBankBalance += tax - Math.floor(tax / 2);
+
+        playerBalances[winner] += netWin;
+        client.say(channel, `🏆 Победитель дуэли (@${winner}) забирает банк в размере +${netWin} 🪙! (Комиссия: ${tax} 🪙). Поздравляем!`);
         return;
     }
 
@@ -1420,3 +1548,4 @@ http.createServer((req, res) => {
 }).listen(PORT, () => {
     console.log(`HTTP сервер запущен на порту ${PORT}`);
 });
+```[cite: 6]
