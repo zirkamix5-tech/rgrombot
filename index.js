@@ -175,7 +175,7 @@ setInterval(() => {
             playerUtilities[username].light += 35;
         }
     }
-}, 60 * 60 * 1000);
+}, 120 * 120 * 1000);
 
 // --- СИСТЕМА РАБОТЫ И ИМУЩЕСТВА ---
 const playerJobs = {};               
@@ -536,7 +536,7 @@ client.on('message', (channel, tags, message, self) => {
         marriageTimestamps[username] = nowMs;
 
         delete pendingProposals[username];
-        client.say(channel, `❤️ ГОРЬКО! @${proposer} и @${username} официально поженились! 🎉 С праздником новую семью!`);
+        client.say(channel, `❤️ СЛАДКО! @${proposer} и @${username} Официально стали мужем и женой! 🎉 С праздником новую семью!`);
         return;
     }
 
@@ -563,10 +563,39 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
+    // --- НОВАЯ СИСТЕМА: ТОП БРАКОВ ---
+    if (lowerMessage === '!топбраков' || lowerMessage === '!топпар') {
+        const processedMarriages = new Set();
+        const marriageList = [];
+
+        for (const [user1, user2] of Object.entries(playerMarriages)) {
+            if (!processedMarriages.has(user2) && !processedMarriages.has(user1)) {
+                processedMarriages.add(user1);
+                processedMarriages.add(user2);
+                const date = marriageDates[user1] || 'неизвестно';
+                const kids = playerChildren[user1] || 0;
+                marriageList.push({ user1, user2, date, kids });
+            }
+        }
+
+        if (marriageList.length === 0) {
+            client.say(channel, `🏆 На канале пока нет зарегистрированных браков! Создайте семью через !свадьба @ник`);
+            return;
+        }
+
+        let topText = `🏆 ТОП СЕМЕЙНЫХ ПАР: `;
+        marriageList.slice(0, 5).forEach((m, index) => {
+            const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
+            topText += `${medals[index]} @${m.user1} ❤️ @${m.user2} (📅 С ${m.date}) | `;
+        });
+        client.say(channel, topText);
+        return;
+    }
+
     if (lowerMessage === '!ребенок' || lowerMessage === '!родить' || lowerMessage === '!дети') {
         const partner = playerMarriages[username];
         if (!partner) {
-            client.say(channel, `❌ @${username}, чтобы завести ребенка, нужно сначала состоять в браке! (!свадьба @ник)`);
+            client.say(channel, `❌ @${username}, чтобы завести ребёнка, нужно сначала состоять в браке! (!свадьба @ник)`);
             return;
         }
 
@@ -695,7 +724,7 @@ client.on('message', (channel, tags, message, self) => {
         const currentDebt = playerDebts[username];
 
         if (isNaN(amount) || amount <= 0 || currentDebt <= 0) {
-            client.say(channel, `⚠️ У вас нет активных долгов/кредитов или неверная сумма. Пример: !погасить кредит 100`);
+            client.say(channel, `⚠️ У вас нет активных долгов/кредитов или неверная сумма. Пример: !погасить [cумма]`);
             return;
         }
         if (amount > currentDebt) amount = currentDebt;
@@ -718,7 +747,7 @@ client.on('message', (channel, tags, message, self) => {
             .slice(0, 5);
 
         if (sortedPlayers.length === 0) {
-            client.say(channel, `🏆 Топ казино пока пуст! Сделайте ставку через !spin`);
+            client.say(channel, `🏆 Топ пустой! Займи первое местой сам. (!каз)`);
             return;
         }
 
@@ -959,16 +988,17 @@ client.on('message', (channel, tags, message, self) => {
             winMultiplier = 2;
         }
 
-        const symbols = ['🍒', '🍋', '🔔', '⭐', '💎', '7️⃣', '💩', '🥐', '🍩', '🛑', '🎲', '🚽'];
+        const symbols = ['🍒', '🍋', '🔔', '⭐', '💎', '7️⃣', '💩', '🥐', '🍩', '🛑', '🎲', '🚽', '🧊'];
         let r1 = symbols[Math.floor(Math.random() * symbols.length)];
         let r2 = symbols[Math.floor(Math.random() * symbols.length)];
         let r3 = symbols[Math.floor(Math.random() * symbols.length)];
+        let r4 = symbols[Math.floor(Math.random() * symbols.length)];
 
-        if (winChanceBonus > 0 && r1 !== r2 && r2 !== r3 && r1 !== r3) {
+        if (winChanceBonus > 0 && r1 !== r2 && r2 !== r3 && r1 !== r3 && r3 !== r4) {
             if (Math.random() < 0.5) r2 = r1;
         }
 
-        if (r1 === r2 && r2 === r3) {
+        if (r1 === r2 && r2 === r3 === r4) {
             let rawWin = bet * 15 * winMultiplier;
             const tax = Math.floor(rawWin * 0.1);
             
@@ -979,8 +1009,8 @@ client.on('message', (channel, tags, message, self) => {
             const win = rawWin - tax;
             playerBalances[username] += win;
             shopBalances[username] += Math.floor(bet / 2);
-            client.say(channel, `🎰 ДЖЕКПOT! @${username} (${r1} ${r2} ${r3}) выиграл +${win} КРЫШКИ! Баланс: ${playerBalances[username]} 🪙`);
-        } else if (r1 === r2 || r2 === r3 || r1 === r3) {
+            client.say(channel, `🎰 ДЖЕКПOT! @${username} (${r1} ${r2} ${r3} ${r4}) выиграл +${win} КРЫШКИ! Баланс: ${playerBalances[username]} 🪙`);
+        } else if (r1 === r2 || r2 === r3 || r1 === r3 || r2 === r4) {
             let rawWin = Math.floor(bet * 2.5 * winMultiplier);
             const tax = Math.max(1, Math.floor(rawWin * 0.1));
 
@@ -991,7 +1021,7 @@ client.on('message', (channel, tags, message, self) => {
             const win = rawWin - tax;
             playerBalances[username] += win;
             shopBalances[username] += 2;
-            client.say(channel, `✨ Пара (${r1} ${r2} ${r3})! @${username} выиграл +${win} КРЫШКИ! Баланс: ${playerBalances[username]} 🪙`);
+            client.say(channel, `✨ Пара (${r1} ${r2} ${r3}) ${r4}! @${username} выиграл +${win} КРЫШКИ! Баланс: ${playerBalances[username]} 🪙`);
         } else {
             if (boosts.shield > 0) {
                 boosts.shield--;
@@ -1000,7 +1030,7 @@ client.on('message', (channel, tags, message, self) => {
                 client.say(channel, `🛡️ Щит спас @${username}! Возвращено 50% ставки (${refund} 🪙). Баланс: ${playerBalances[username]} 🪙`);
             } else {
                 shopBalances[username] += 1;
-                client.say(channel, `❌ Эх, @${username} (${r1} ${r2} ${r3}). Проигрыш. Баланс: ${playerBalances[username]} 🪙`);
+                client.say(channel, `❌ Эх, @${username} (${r1} ${r2} ${r3} ${r4}). Проигрыш. Баланс: ${playerBalances[username]} 🪙`);
             }
         }
         return;
@@ -1057,13 +1087,28 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 13. РАБОТА И ОБМЕН ---
-    if (lowerMessage === '!работы') {
-        let text = `💼 ДОСТУПНЫЕ РАБОТЫ: `;
-        Object.entries(JOBS_DATA).forEach(([jobName, data]) => {
-            text += `[${jobName}] Зарплата: ${data.salary} 💵 (мин. денег в банке: ${data.req}) | `;
+    // --- 13. РАБОТА И ОБМЕН (С ПОСТРАНИЧНЫМ ВЫВОДОМ) ---
+    if (lowerMessage.startsWith('!работы')) {
+        const parts = trimmedMessage.split(' ');
+        const page = parseInt(parts[1]) || 1;
+        const jobEntries = Object.entries(JOBS_DATA);
+        const perPage = 8;
+        const totalPages = Math.ceil(jobEntries.length / perPage);
+
+        const start = (page - 1) * perPage;
+        const pageJobs = jobEntries.slice(start, start + perPage);
+
+        if (pageJobs.length === 0) {
+            client.say(channel, `❌ Страница ${page} не найдена. Всего страниц: ${totalPages}`);
+            return;
+        }
+
+        let text = `💼 ДОСТУПНЫЕ РАБОТЫ (Стр. ${page}/${totalPages}): `;
+        pageJobs.forEach(([jobName, data]) => {
+            text += `[${jobName}] Зарп: ${data.salary} 💵 (мин. в банке: ${data.req}) | `;
         });
-        client.say(channel, text + `Устроиться: !устроиться [название]`);
+        text += `(Смотреть след: !работы 2 | Устроиться: !устроиться [название])`;
+        client.say(channel, text);
         return;
     }
 
