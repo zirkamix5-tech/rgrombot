@@ -183,15 +183,16 @@ const jobCooldowns = {};
 const playerInventory = {};          
 
 const JOBS_DATA = {
-    'Мусорщик': { salary: 30, cooldown: 60 * 60 * 1000, req: 0 },
+    'Мусорщик': { salary: 30, cooldown: 15 * 60 * 1000, req: 0 },
     'Грузчик': { salary: 55, cooldown: 15 * 60 * 1000, req: 0 },
     'Курьер': { salary: 100, cooldown: 30 * 60 * 1000, req: 125 },
     'Электрик': { salary: 150, cooldown: 45 * 60 * 1000, req: 200 },
-    'Бухгалтер': { salary: 200, cooldown: 60 * 60 * 1000, req: 300 },
+    'Бухгалтер': { salary: 200, cooldown: 50 * 60 * 1000, req: 300 },
     'Помощник-Повара': { salary: 230, cooldown: 60 * 60 * 1000, req: 270 },
     'Менеджер': { salary: 250, cooldown: 80 * 60 * 1000, req: 450 },
     'Проститут': { salary: 500, cooldown: 60 * 60 * 1000, req: 1000 },
     'Проститутка': { salary: 700, cooldown: 60 * 60 * 1000, req: 1000 },
+    'Мастер маникюра': { salary: 700, cooldown: 60 * 60 * 1000, req: 1000 },
     'Официант': { salary: 700, cooldown: 60 * 60 * 1000, req: 1000 },
     'Программист': { salary: 800, cooldown: 100 * 60 * 1000, req: 500 },
     'Домашний-кондитер': { salary: 900, cooldown: 120 * 120 * 1000, req: 1000 },
@@ -955,7 +956,7 @@ client.on('message', (channel, tags, message, self) => {
     // --- 11. КАЗИНО ---
     if (lowerMessage.startsWith('!каз')) {
         if (!isCasinoOpen) {
-            client.say(channel, `⏳ Казино сейчас закрыто. Приходите позже, после 12:00.`);
+            client.say(channel, `⏳ Казино сейчас закрыто. Приходите позже, после.`);
             return;
         }
 
@@ -994,11 +995,11 @@ client.on('message', (channel, tags, message, self) => {
         let r3 = symbols[Math.floor(Math.random() * symbols.length)];
         let r4 = symbols[Math.floor(Math.random() * symbols.length)];
 
-        if (winChanceBonus > 0 && r1 !== r2 && r2 !== r3 && r1 !== r3 && r3 !== r4) {
+        if (winChanceBonus > 0 && r1 !== r2 && r2 !== r3 && r1 !== r3) {
             if (Math.random() < 0.5) r2 = r1;
         }
 
-        if (r1 === r2 && r2 === r3 === r4) {
+        if (r1 === r2 && r2 === r3) {
             let rawWin = bet * 15 * winMultiplier;
             const tax = Math.floor(rawWin * 0.1);
             
@@ -1009,8 +1010,8 @@ client.on('message', (channel, tags, message, self) => {
             const win = rawWin - tax;
             playerBalances[username] += win;
             shopBalances[username] += Math.floor(bet / 2);
-            client.say(channel, `🎰 ДЖЕКПOT! @${username} (${r1} ${r2} ${r3} ${r4}) выиграл +${win} КРЫШКИ! Баланс: ${playerBalances[username]} 🪙`);
-        } else if (r1 === r2 || r2 === r3 || r1 === r3 || r2 === r4) {
+            client.say(channel, `🎰 ДЖЕКПOT! @${username} (${r1} ${r2} ${r3}) выиграл +${win} КРЫШКИ! Баланс: ${playerBalances[username]} 🪙`);
+        } else if (r1 === r2 || r2 === r3 || r1 === r3) {
             let rawWin = Math.floor(bet * 2.5 * winMultiplier);
             const tax = Math.max(1, Math.floor(rawWin * 0.1));
 
@@ -1021,7 +1022,7 @@ client.on('message', (channel, tags, message, self) => {
             const win = rawWin - tax;
             playerBalances[username] += win;
             shopBalances[username] += 2;
-            client.say(channel, `✨ Пара (${r1} ${r2} ${r3} ${r4})! @${username} выиграл +${win} КРЫШКИ! Баланс: ${playerBalances[username]} 🪙`);
+            client.say(channel, `✨ Пара (${r1} ${r2} ${r3})! @${username} выиграл +${win} КРЫШКИ! Баланс: ${playerBalances[username]} 🪙`);
         } else {
             if (boosts.shield > 0) {
                 boosts.shield--;
@@ -1030,7 +1031,7 @@ client.on('message', (channel, tags, message, self) => {
                 client.say(channel, `🛡️ Щит спас @${username}! Возвращено 50% ставки (${refund} 🪙). Баланс: ${playerBalances[username]} 🪙`);
             } else {
                 shopBalances[username] += 1;
-                client.say(channel, `❌ Эх, @${username} (${r1} ${r2} ${r3} ${r4}). Проигрыш. Баланс: ${playerBalances[username]} 🪙`);
+                client.say(channel, `❌ Эх, @${username} (${r1} ${r2} ${r3}). Проигрыш. Баланс: ${playerBalances[username]} 🪙`);
             }
         }
         return;
