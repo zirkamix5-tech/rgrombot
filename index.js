@@ -1110,6 +1110,102 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
+    // --- РУЛЕТКА (ЕВРОПЕЙСКАЯ: ЧИСЛА 0-36, ЦВЕТА И ДРУГИЕ СТАВКИ) ---
+    if (lowerMessage.startsWith('!рулетка')) {
+        if (!isCasinoOpen) {
+            client.say(channel, `⏳ Казино сейчас закрыто.`);
+            return;
+        }
+
+        if (playerBalances[username] <= 0) {
+            client.say(channel, `❌ @${username}, у вас 0 КРЫШЕК! Заработайте их на работе (!работы).`);
+            return;
+        }
+
+        const args = trimmedMessage.split(' ');
+        const betArg = args[1];          // Сумма ставки
+        const targetArg = args[2]?.toLowerCase(); // На что ставит (красное, черное, зеленый / число 0-36)
+
+        let bet = betArg?.toLowerCase() === 'all' || betArg?.toLowerCase() === 'все' ? playerBalances[username] : parseInt(betArg);
+
+        if (isNaN(bet) || bet <= 0 || playerBalances[username] < bet || !targetArg) {
+            client.say(channel, `⚠️ Использование: !рулетка [ставка] [красное / черное / зеленый / 0-36]. Пример: !рулетка 50 красное`);
+            return;
+        }
+
+        // Проверяем валидность цели ставки
+        const redNumbers = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
+        const blackNumbers = [2,4,6,8,10,11,13,15,17,20,22,24,26,28,29,31,33,35];
+        
+        let isValidBetTarget = false;
+        let targetType = ''; // 'red', 'black', 'green', 'number'
+        let targetNum = null;
+
+        if (['красное', 'red', 'красный'].includes(targetArg)) {
+            targetType = 'red';
+            isValidBetTarget = true;
+        } else if (['черное', 'black', 'чёрное'].includes(targetArg)) {
+            targetType = 'black';
+            isValidBetTarget = true;
+        } else if (['зеленый', 'green', 'зелёный', 'зеро', '0'].includes(targetArg)) {
+            targetType = 'green';
+            targetNum = 0;
+            isValidBetTarget = true;
+        } else {
+            const num = parseInt(targetArg);
+            if (!isNaN(num) && num >= 0 && num <= 36) {
+                targetType = 'number';
+                targetNum = num;
+                isValidBetTarget = true;
+            }
+        }
+
+        if (!isValidBetTarget) {
+            client.say(channel, `❌ Неверная ставка! Укажите цвет (красное, черное, зеленый) или конкретное число от 0 до 36.`);
+            return;
+        }
+
+        playerBalances[username] -= bet;
+
+        // Вращаем рулетку (от 0 до 36)
+        const rolledNumber = Math.floor(Math.random() * 37);
+        let rolledColor = '🟢 зеленый (0)';
+        if (redNumbers.includes(rolledNumber)) rolledColor = '🔴 красное';
+        else if (blackNumbers.includes(rolledNumber)) rolledColor = '⚫ чёрное';
+
+        // Проверяем выигрыш
+        let isWin = false;
+        let rawWin = 0;
+
+        if (targetType === 'red' && redNumbers.includes(rolledNumber)) {
+            isWin = true;
+            rawWin = bet * 2;
+        } else if (targetType === 'black' && blackNumbers.includes(rolledNumber)) {
+            isWin = true;
+            rawWin = bet * 2;
+        } else if (targetType === 'green' && rolledNumber === 0) {
+            isWin = true;
+            rawWin = bet * 14; // Зеро на цвет/зеленый (если обобщенно)
+        } else if (targetType === 'number' && targetNum === rolledNumber) {
+            isWin = true;
+            rawWin = bet * 35; // Чистая ставка на точное число в рулетке х35
+        }
+
+        if (isWin) {
+            const tax = Math.max(1, Math.floor(rawWin * 0.1));
+            const bankShare = Math.max(1, Math.floor(tax * 0.5));
+            casinoBank += (tax - bankShare);
+            mainBankBalance += bankShare;
+
+            const win = rawWin - tax;
+            playerBalances[username] += win;
+            client.say(channel, `🎯 РУЛЕТКА | Выпало: ${rolledNumber} (${rolledColor})! 🏆 @${username} победил и выиграл +${win} 🪙! Баланс: ${playerBalances[username]} 🪙`);
+        } else {
+            client.say(channel, `🎯 РУЛЕТКА | Выпало: ${rolledNumber} (${rolledColor}). ❌ @${username} проиграл ставку. Баланс: ${playerBalances[username]} 🪙`);
+        }
+        return;
+    }
+
     // --- 12. ПРОФИЛЬ, БАЛАНС И СТАТИСТИКА ИГРОКА ---
     if (lowerMessage.startsWith('!статистика') || lowerMessage.startsWith('!профиль') || lowerMessage.startsWith('!стат')) {
         const args = trimmedMessage.split(' ');
