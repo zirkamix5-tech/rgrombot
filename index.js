@@ -1038,6 +1038,11 @@ client.on('message', (channel, tags, message, self) => {
 
     // --- ПОКЕР (МИНИ-ИГРА НА КОМБИНАЦИИ С НАЛОГАМИ В БАНКИ) ---
     if (lowerMessage.startsWith('!покер')) {
+        if (!isCasinoOpen) {
+            client.say(channel, `⏳ Казино сейчас закрыто.`);
+            return;
+        }
+
         if (playerBalances[username] <= 0) {
             client.say(channel, `❌ @${username}, у вас 0 КРЫШКИ! Заработайте их на работе (!работы).`);
             return;
@@ -1388,3 +1393,4 @@ http.createServer((req, res) => {
 }).listen(PORT, () => {
     console.log(`HTTP сервер запущен на порту ${PORT}`);
 });
+```[cite: 2]
