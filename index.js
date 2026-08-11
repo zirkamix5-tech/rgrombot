@@ -221,6 +221,20 @@ const SHOP_ITEMS = {
     'Вилла': { price: 100000, type: 'жилье', desc: 'Уф, богато!' }
 };
 
+// --- МАГАЗИН ЖИВОТНЫХ ---
+const PET_SHOP_ITEMS = {
+    'хомяк': { price: 200, type: 'животное', desc: 'Маленький грызун для дома' },
+    'кот': { price: 800, type: 'животное', desc: 'Мурлыкающий пушистый друг' },
+    'собака': { price: 1500, type: 'животное', desc: 'Верный охранник и товарищ' },
+    'попугай': { price: 1200, type: 'животное', desc: 'Говорящая птица' },
+    'игуана': { price: 3000, type: 'экзотика', desc: 'Экзотическая рептилия' },
+    'енот': { price: 5000, type: 'экзотика', desc: 'Милый и вороватый полоскун' },
+    'лемур': { price: 12000, type: 'экзотика', desc: 'Забавный экзотический зверек' },
+    'пантера': { price: 40000, type: 'экзотика', desc: 'Опасная дикая кошка для богатых' },
+    'дракон': { price: 100000, type: 'экзотика', desc: 'Настоящий мифический питомец' },
+    'QumosX': { price: 500000, type: 'экзотика', desc: 'Настоящий редкий стример.' }
+};
+
 // --- СПИСОК ИЗВЕСТНЫХ БОТОВ И ПРОВЕРКА ---
 const knownBots = new Set([
     'nightbot', 'streamelements', 'fossabot', 'moobot', 'soundalerts',
@@ -903,7 +917,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    if (lowerMessage.startsWith('!купить ') && !lowerMessage.startsWith('!купитьбуст')) {
+    if (lowerMessage.startsWith('!купить ') && !lowerMessage.startsWith('!купитьбуст') && !lowerMessage.startsWith('!купитьживотное')) {
         const itemName = trimmedMessage.split(' ')[1]?.toLowerCase();
         const item = SHOP_ITEMS[itemName];
 
@@ -937,6 +951,43 @@ client.on('message', (channel, tags, message, self) => {
         }
 
         client.say(channel, `🛍️ Поздравляем, @${username}! Вы купили "${itemName}" за ${item.price} 💵 с личного счета в банке!`);
+        return;
+    }
+
+    // --- МАГАЗИН ЖИВОТНЫХ ---
+    if (lowerMessage === '!зоомагазин' || lowerMessage === '!магазинживотных') {
+        let text = `🐾 ЗООМАГАЗИН (Животные и Экзотика): `;
+        Object.entries(PET_SHOP_ITEMS).forEach(([petName, petData]) => {
+            text += `[${petName}] — ${petData.price} 💵 (${petData.desc}) | `;
+        });
+        client.say(channel, text + `Купить: !купитьживотное [название]`);
+        return;
+    }
+
+    if (lowerMessage.startsWith('!купитьживотное ') || lowerMessage.startsWith('!купитьпет ')) {
+        const petName = trimmedMessage.split(' ')[1]?.toLowerCase();
+        const pet = PET_SHOP_ITEMS[petName];
+
+        if (!pet) {
+            client.say(channel, `❌ Такого питомца нет в зоомагазине! Каталог: !зоомагазин`);
+            return;
+        }
+
+        if (personalBankBalances[username] < pet.price) {
+            client.say(channel, `❌ Недостаточно средств на личном банковском счете! У вас: ${personalBankBalances[username]} 💵 (нужно: ${pet.price})`);
+            return;
+        }
+
+        personalBankBalances[username] -= pet.price;
+
+        const bankTax = Math.floor(pet.price * 0.15);
+        mainBankBalance += bankTax;
+        storeBank += (pet.price - bankTax);
+
+        if (!playerInventory[username]) playerInventory[username] = [];
+        playerInventory[username].push(petName);
+
+        client.say(channel, `🐾 Поздравляем, @${username}! Вы приобрели питомца "${petName}" за ${pet.price} 💵! Процент от покупки отправлен в общий банк.`);
         return;
     }
 
@@ -1420,3 +1471,4 @@ http.createServer((req, res) => {
 }).listen(PORT, () => {
     console.log(`HTTP сервер запущен на порту ${PORT}`);
 });
+```[cite: 8]
