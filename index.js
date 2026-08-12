@@ -818,7 +818,7 @@ client.on('message', (channel, tags, message, self) => {
         }
 
         if (marriageList.length === 0) {
-            client.say(channel, `🏆 Эх, ещё нету пар`);
+            client.say(channel, `🏆 Пары ещё не сформированы.`);
             return;
         }
 
