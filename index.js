@@ -158,7 +158,7 @@ setInterval(() => {
     for (const username of Object.keys(playerBalances)) {
         playerAges[username] = (playerAges[username] || 15) + 1;
     }
-}, 8760 * 60 * 60 * 1000);
+}, 10 * 60 * 60 * 1000);
 
 // --- СИСТЕМА НАЧИСЛЕНИЯ ПЕНСИЙ ---
 setInterval(() => {
