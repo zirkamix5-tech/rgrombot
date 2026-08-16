@@ -25,6 +25,12 @@ const casinoDebts = {};              // Долги игроков лично п�
 const casinoDebtDeadlines = {};      // Таймер/дедлайн погашения долга казино (timestamp в мс)
 const personalBankBalances = {};     // Единый личный банковский счёт игроков (сюда капает зарплата, пенсии и т.д.)
 
+// --- ДАННЫЕ ДЛЯ КРЕДИТОВ И ТЮРЬМЫ ---
+const bankDebtDeadlines = {};        // Таймер дедлайна возврата банковского кредита (timestamp в мс)
+const playerJailDeadlines = {};      // Таймер окончания тюремного срока (timestamp в мс)
+const playerJailStages = {};         // Ступень тюремного срока (0 - нет, 1 - маленький, 2 - увеличенный, 3 - пожизненное)
+const playerLastChanceUsed = {};     // Флаг: использован ли единственный шанс после пожизненного (true/false)
+
 // --- СИСТЕМА ВОЗРАСТА И ПЕНСИЙ ---
 const playerAges = {};               // Возраст игроков (playerAges[username] = число лет)
 const lastPensionTime = {};          // Таймер выплаты пенсии, чтобы не начислять каждую секунду
@@ -56,9 +62,9 @@ let casinoSalaryFund = 0;            // Фонд зарплаты сотрудн
 
 const CASINO_ROLES = {
     'хостес': {salary: 50, desc: 'Встречает гостей, которые идут в казино'},
-    'бармен': {salary: 75, desc: 'Встречает гостей, которые идут в казино'},
-    'стриптизёрша': {salary: 120, desc: 'Встречает гостей, которые идут в казино'},
-    'стриптизёр': {salary: 130, desc: 'Встречает гостей, которые идут в казино'},
+    'бармен': {salary: 75, desc: 'Встречает гостей, напитками'},
+    'стриптизёрша': {salary: 120, desc: 'Танцует для гостей'},
+    'стриптизёр': {salary: 130, desc: 'Танцует для гостей'},
     'крупье': { salary: 140, desc: 'Принимает ставки и раздает фишки в казино' },
     'охранник': { salary: 160, desc: 'Следит за порядком и успокаивает буйных игроков' },
     'менеджер': { salary: 200, desc: 'Управляет процессами и контролирует столы' },
@@ -111,14 +117,50 @@ setInterval(() => {
     }
 }, 60 * 1000);
 
-// --- АВТО-УВЕЛИЧЕНИЕ ВОЗРАСТА ИГРОКОВ (Раз в 3 часа реального времени) ---
+// --- ПРОВЕРКА ДЕДЛАЙНОВ БАНКОВСКИХ КРЕДИТОВ И ТЮРЬМЫ ---
+setInterval(() => {
+    const now = Date.now();
+    for (const [username, deadline] of Object.entries(bankDebtDeadlines)) {
+        if (deadline && now > deadline && playerDebts[username] > 0) {
+            const currentStage = playerJailStages[username] || 0;
+
+            if (currentStage === 0) {
+                playerJailStages[username] = 1;
+                playerJailDeadlines[username] = now + (1 * 60 * 60 * 1000);
+                client.say('QumosX', `🚨 ВНИМАНИЕ! @${username} не вернул банковский кредит вовремя! Суд приговорил его к первому тюремному заключению.`);
+            } else if (currentStage === 1) {
+                playerJailStages[username] = 2;
+                playerJailDeadlines[username] = now + (24 * 60 * 60 * 1000);
+                client.say('QumosX', `🚨 ВНИМАНИЕ! У @${username} продолжается просрочка кредита! Тюремный срок автоматически увеличен.`);
+            } else if (currentStage >= 2) {
+                playerJailStages[username] = 3;
+                playerJailDeadlines[username] = now + (36500 * 24 * 60 * 60 * 1000);
+                client.say('QumosX', `💀 СУДЕБНЫЙ ПРИГОВОР! @${username} довел дело до ПОЖИЗНЕННОГО заключения за неуплату кредита! Доступ ко всему заблокирован навсегда.`);
+            }
+
+            delete bankDebtDeadlines[username];
+        }
+    }
+    
+    for (const [username, jailDeadline] of Object.entries(playerJailDeadlines)) {
+        if (jailDeadline && now > jailDeadline) {
+            const stage = playerJailStages[username] || 0;
+            if (stage === 3) continue;
+            delete playerJailDeadlines[username];
+            playerJailStages[username] = 0;
+            client.say('QumosX', `🔓 @${username} отбыл свой срок в тюрьме и вышел на свободу! Возвращайтесь к честной жизни.`);
+        }
+    }
+}, 60 * 1000);
+
+// --- АВТО-УВЕЛИЧЕНИЕ ВОЗРАСТА ИГРОКОВ ---
 setInterval(() => {
     for (const username of Object.keys(playerBalances)) {
-        playerAges[username] = (playerAges[username] || 18) + 1;
+        playerAges[username] = (playerAges[username] || 15) + 1;
     }
-}, 3 * 60 * 60 * 1000);
+}, 8760 * 60 * 60 * 1000);
 
-// --- СИСТЕМА НАЧИСЛЕНИЯ ПЕНСИЙ (Каждый час для игроков 50+) ---
+// --- СИСТЕМА НАЧИСЛЕНИЯ ПЕНСИЙ ---
 setInterval(() => {
     for (const [username, age] of Object.entries(playerAges)) {
         if (age >= 50) {
@@ -126,18 +168,16 @@ setInterval(() => {
             const jobSalary = (jobKey && JOBS_DATA[jobKey]) ? JOBS_DATA[jobKey].salary : 30;
             const pensionAmount = Math.floor(jobSalary * 0.6);
 
-            if (mainBankBalance < pensionAmount) {
-                continue;
-            }
+            if (mainBankBalance < pensionAmount) continue;
 
             mainBankBalance -= pensionAmount;
             personalBankBalances[username] = (personalBankBalances[username] || 0) + pensionAmount;
             client.say('QumosX', `👴 Государственный банк выплатил пенсию ветерану труда @${username} (Возраст: ${age} лет) в размере ${pensionAmount} 💵 на личный банковский счёт!`);
         }
     }
-}, 60 * 60 * 1000);
+}, 800 * 800 * 1000);
 
-// --- СИСТЕМА АВТО-ВЫДАЧИ ЗАРПЛАТЫ СОТРУДНИКАМ КАЗИНО (Каждый час) ---
+// --- СИСТЕМА АВТО-ВЫДАЧИ ЗАРПЛАТЫ СОТРУДНИКАМ КАЗИНО ---
 setInterval(() => {
     const staffEntries = Object.entries(casinoStaff);
     if (staffEntries.length === 0) return;
@@ -164,7 +204,7 @@ setInterval(() => {
     client.say('QumosX', `💰 Автоматическая выплата зарплат сотрудникам казино успешно проведена из фонда! Зарплаты зачислены на личные банковские счета 💵.`);
 }, 60 * 60 * 1000);
 
-// --- СИСТЕМА НАЧИСЛЕНИЯ КОММУНАЛЬНЫХ НАЛОГОВ (Каждый час для владельцев жилья) ---
+// --- СИСТЕМА НАЧИСЛЕНИЯ КОММУНАЛЬНЫХ НАЛОГОВ ---
 setInterval(() => {
     for (const [username, inventory] of Object.entries(playerInventory)) {
         const hasHousing = inventory.some(item => {
@@ -206,6 +246,7 @@ const JOBS_DATA = {
     'Су-шеф': { salary: 2000, cooldown: 60 * 60 * 1000, req:  1000 },
     'Модель': { salary: 2300, cooldown: 60 * 60 * 1000, req: 2700 },
     'Актёр': { salary: 2500, cooldown: 60 * 60 * 1000, req: 2900 },
+	'Хакер': { salary: 5000, cooldown: 120 * 120 * 1000, req: 7000 },
 };
 
 const SHOP_ITEMS = {
@@ -226,7 +267,8 @@ const SHOP_ITEMS = {
     'Вилла': { price: 100000, type: 'жилье', desc: 'Уф, богато!' }
 };
 
-// --- СПИСОК ИЗВЕСТНЫХ БОТОВ И ПРОВЕРКА ---
+const bankBannedUsers = {};
+
 const knownBots = new Set([
     'nightbot', 'streamelements', 'fossabot', 'moobot', 'soundalerts',
     'Streamlabs', 'WizeBot', 'Coebot', 'Phantombot', 'AlippBot', 'BotRix', 'AlerterBot'
@@ -255,20 +297,33 @@ client.on('message', (channel, tags, message, self) => {
     const username = (tags['display-name'] || tags.username).toLowerCase();
     if (isBot(tags, username)) return;
 
+    // --- ПРОВЕРКА НАХОЖДЕНИЯ В ТЮРЬМЕ ---
+    if (playerJailDeadlines[username] && playerJailDeadlines[username] > Date.now()) {
+        const stage = playerJailStages[username] || 1;
+        if (stage === 3) {
+            if (message.trim().startsWith('!')) {
+                client.say(channel, `💀 @${username}, у вас ПОЖИЗНЕННОЕ заключение за долги! Вы не можете пользоваться ничем, ни казино, вообще ничем! За вас может внести залог кто-то другой (!выкупить @${username}).`);
+            }
+            return;
+        } else {
+            const timeLeftSec = Math.ceil((playerJailDeadlines[username] - Date.now()) / 1000);
+            if (message.trim().startsWith('!')) {
+                client.say(channel, `🔒 @${username}, вы находитесь в тюрьме за неоплаченный кредит (Стадия ${stage})! Осталось сидеть: ~${Math.ceil(timeLeftSec / 60)} мин.`);
+            }
+            return;
+        }
+    }
+
     const trimmedMessage = message.trim();
     const lowerMessage = trimmedMessage.toLowerCase();
     
     const isMod = tags.mod || tags.badges?.broadcaster === '1' || username === 'qumosx' || username === 'gospod_bomzhik' || username === 'miss__krevetka' || username === 'r0ma_gr0m';
     const isBroadcaster = tags.badges?.broadcaster === '1' || username === 'qumosx' || username === 'gospod_bomzhik' || username === 'miss__krevetka' || username === 'r0ma_gr0m';
 
-    // Пример автоматического приветствия (если где-то встроено или вызывается)
-    // Пример интеграции проверки:
     if (!самСдоровался(username)) {
         отметитьСдоровавшимся(username);
-        // client.say(channel, `Привет, @${username}!`); // Авто-приветствие можно кастомизировать здесь, если нужно
     }
 
-    // Инициализация данных пользователя по умолчанию
     if (playerBalances[username] === undefined) playerBalances[username] = 100;
     if (personalBankBalances[username] === undefined) personalBankBalances[username] = 0;
     if (!shopBalances[username]) shopBalances[username] = 0;
@@ -284,7 +339,7 @@ client.on('message', (channel, tags, message, self) => {
     }
     if (playerChildren[username] === undefined) playerChildren[username] = 0;
 
-    // --- 2. УПРАВЛЕНИЕ КАЗИНО И ФОНДОМ ЗАРПЛАТ (ВЛАДЕЛЕЦ) ---
+    // --- УПРАВЛЕНИЕ КАЗИНО И ФОНДОМ ЗАРПЛАТ ---
     if (lowerMessage === '!каз открыть' && isMod) {
         isCasinoOpen = true;
         manualOverride = true;
@@ -476,7 +531,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 3. ПЕРЕДАЧА КРЫШЕК МЕЖДУ ИГРОКАМИ ---
+    // --- ПЕРЕДАЧА КРЫШЕК МЕЖДУ ИГРОКАМИ ---
     if (lowerMessage.startsWith('!передать') || lowerMessage.startsWith('!дать')) {
         const parts = trimmedMessage.split(' ');
         const targetArg = parts[1]?.replace('@', '').toLowerCase();
@@ -508,7 +563,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 3.1. ДУЭЛИ И ИГРЫ МЕЖДУ ИГРОКАМИ (ПОКЕР, РУЛЕТКА, КАЗИНО) ---
+    // --- ДУЭЛИ И ИГРЫ МЕЖДУ ИГРОКАМИ ---
     if (lowerMessage.startsWith('!казпати') || lowerMessage.startsWith('!патиказ') || lowerMessage.startsWith('!дуэль')) {
         const parts = trimmedMessage.split(' ');
         const targetArg = parts[1]?.replace('@', '').toLowerCase();
@@ -563,7 +618,6 @@ client.on('message', (channel, tags, message, self) => {
             return;
         }
 
-        // Списываем ставки с обоих
         playerBalances[challenger] -= amount;
         playerBalances[username] -= amount;
         const totalPot = amount * 2;
@@ -630,7 +684,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 4. СИСТЕМА БРАКОВ И СЕМЕЙ ---
+    // --- СИСТЕМА БРАКОВ И СЕМЕЙ ---
     if (lowerMessage.startsWith('!свадьба') || lowerMessage.startsWith('!брак')) {
         const parts = trimmedMessage.split(' ');
         const targetArg = parts[1]?.replace('@', '').toLowerCase();
@@ -713,7 +767,6 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- НОВЫЕ КОМАНДЫ ДЛЯ СЕМЬИ: !поцеловать, !обнять ---
     if (lowerMessage.startsWith('!поцеловать')) {
         const partner = playerMarriages[username];
         if (!partner) {
@@ -742,7 +795,6 @@ client.on('message', (channel, tags, message, self) => {
             return;
         }
 
-        // Формируем уникальный ключ семьи для сейфа (сортируем имена по алфавиту)
         const familyKey = [username, partner].sort().join('_');
         if (familyVaults[familyKey] === undefined) {
             familyVaults[familyKey] = 0;
@@ -763,11 +815,11 @@ client.on('message', (channel, tags, message, self) => {
         }
 
         if (action === 'положить') {
-            if (amount <= 0 || playerBalances[username] < amount) {
-                client.say(channel, `❌ Неверная сумма или недостаточно КРЫШЕК на руках! Ваш баланс: ${playerBalances[username]} 🪙`);
+            if (amount <= 0 || personalBankBalances[username] < amount) {
+                client.say(channel, `❌ Неверная сумма или недостаточно КРЫШЕК на руках! Ваш баланс: ${personalBankBalances[username]} 🪙`);
                 return;
             }
-            playerBalances[username] -= amount;
+            personalBankBalances[username] -= amount;
             familyVaults[familyKey] += amount;
             client.say(channel, `💼 @${username} положил(-а) ${amount} 🪙 в семейный сейф. Баланс сейфа: ${familyVaults[familyKey]} 🪙`);
             return;
@@ -779,7 +831,7 @@ client.on('message', (channel, tags, message, self) => {
                 return;
             }
             familyVaults[familyKey] -= amount;
-            playerBalances[username] += amount;
+            personalBankBalances[username] += amount;
             client.say(channel, `🏧 @${username} забрал(-а) ${amount} 🪙 из семейного сейфа. Остаток в сейфе: ${familyVaults[familyKey]} 🪙`);
             return;
         }
@@ -802,7 +854,6 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- ТОП БРАКОВ ---
     if (lowerMessage === '!топбраков' || lowerMessage === '!топпар') {
         const processedMarriages = new Set();
         const marriageList = [];
@@ -831,7 +882,6 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- СИСТЕМА РЕБЁНКА ---
     if (lowerMessage === '!ребёнок') {
         const partner = playerMarriages[username];
         if (!partner) {
@@ -849,7 +899,7 @@ client.on('message', (channel, tags, message, self) => {
         const marriageTime = marriageTimestamps[username] || 0;
         const sevenDays = 7 * 24 * 60 * 60 * 1000;
         if ((now - marriageTime) < sevenDays) {
-            client.say(channel, `❌ @${username}, ваша семья ещё слишком молода! Нужно прожить в браке не менее 7 дней.`);
+            client.say(channel, `❌ @${username}, Ваша семья ещё слишком молода! Нужно прожить в браке не менее 7 дней.`);
             return;
         }
 
@@ -883,22 +933,42 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 5. БАНКОВСКАЯ СИСТЕМА (ЛИЧНЫЙ СЧЕТ В БАНКЕ) И ДОЛГИ ---
+    // --- БАНКОВСКАЯ СИСТЕМА И ДОЛГИ ---
     if (lowerMessage === '!банк' || lowerMessage === '!bank') {
         client.say(channel, `🏦 @${username}, ваш личный банковский счёт: ${personalBankBalances[username]} 💵`);
         return;
     }
 
     if (lowerMessage.startsWith('!кредит') || lowerMessage.startsWith('!взятькредит')) {
+        if (bankBannedUsers[username]) {
+            client.say(channel, `❌ @${username}, вам запрещено пользоваться этим банком из-за неоплаченного кредита в течение 3-х дней!`);
+            return;
+        }
+
+        if (playerDebts[username] > 0) {
+            client.say(channel, `❌ @${username}, Банк отказал вам в выдаче нового кредита, так как у вас уже есть неоплаченный кредит. (${playerDebts[username]} 💵)! Погасите его через !погасить [сумма].`);
+            return;
+        }
+
         const args = trimmedMessage.split(' ');
         const amount = parseInt(args[1]);
         if (isNaN(amount) || amount <= 0) {
             client.say(channel, `⚠️ Укажите сумму кредита. Пример: !кредит 500`);
             return;
         }
+
+        if (amount > 10000) {
+            client.say(channel, `❌ Максимальная сумма кредита составляет 10000 💵!`);
+            return;
+        }
+
         playerDebts[username] += amount;
         personalBankBalances[username] = (personalBankBalances[username] || 0) + amount;
-        client.say(channel, `🏦 Банк одобрил и выдал @${username} кредит на сумму ${amount} 💵 на личный банковский счёт! Общий долг: ${playerDebts[username]} 💵`);
+
+        const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+        bankDebtDeadlines[username] = Date.now() + THREE_DAYS_MS;
+
+        client.say(channel, `🏦 Банк одобрил и выдал @${username} кредит на сумму ${amount} 💵! Внимание: верните кредит в течение 3 дней, иначе начнется тюремное заключение!`);
         return;
     }
 
@@ -908,12 +978,63 @@ client.on('message', (channel, tags, message, self) => {
             const diffHours = Math.ceil((casinoDebtDeadlines[username] - Date.now()) / (1000 * 60 * 60));
             if (diffHours > 0) {
                 const days = (diffHours / 24).toFixed(1);
-                timeLeftText = ` (Осталось вернуть за: ~${days} дн.)`;
+                timeLeftText = ` (Казино дедлайн: ~${days} дн.)`;
             } else {
-                timeLeftText = ` (СРОК ВОЗВРАТА ИСТЕК!)`;
+                timeLeftText = ` (КАЗИНО СРОК ИСТЕК!)`;
             }
         }
-        client.say(channel, `💳 @${username} | Кредит банка: ${playerDebts[username]} 💵 | Долг казино: ${casinoDebts[username]} 🪙${timeLeftText}`);
+        
+        let bankTimeLeftText = '';
+        if (bankDebtDeadlines[username]) {
+            const diffHours = Math.ceil((bankDebtDeadlines[username] - Date.now()) / (1000 * 60 * 60));
+            if (diffHours > 0) {
+                const days = (diffHours / 24).toFixed(1);
+                bankTimeLeftText = ` (Банк дедлайн: ~${days} дн.)`;
+            } else {
+                bankTimeLeftText = ` (БАНКОВСКИЙ СРОК ИСТЕК!)`;
+            }
+        }
+
+        const stage = playerJailStages[username] || 0;
+        let jailStatus = stage > 0 ? ` | Тюремная стадия: ${stage}/3` : '';
+
+        client.say(channel, `💳 @${username} | Кредит банка: ${playerDebts[username]} 💵${bankTimeLeftText} | Долг казино: ${casinoDebts[username]} 🪙${timeLeftText}${jailStatus}`);
+        return;
+    }
+
+    if (lowerMessage.startsWith('!выкупить') || lowerMessage.startsWith('!залог')) {
+        const parts = trimmedMessage.split(' ');
+        const targetUser = parts[1]?.replace('@', '').toLowerCase() || username;
+
+        if (!playerJailDeadlines[targetUser]) {
+            client.say(channel, `❌ Игрок @${targetUser} не находится в тюрьме.`);
+            return;
+        }
+
+        if (playerLastChanceUsed[targetUser]) {
+            client.say(channel, `❌ Игрок @${targetUser} уже использовал свой единственный шанс в жизни на амнистию/выкуп! Больше его выпустить нельзя.`);
+            return;
+        }
+
+        const debtAmount = playerDebts[targetUser] || 500;
+        const bailCost = debtAmount + Math.floor(debtAmount * 0.2);
+
+        if (personalBankBalances[username] < bailCost) {
+            client.say(channel, `❌ У вас (@${username}) недостаточно средств на личном банковском счете для внесения залога за @${targetUser}! Нужно: ${bailCost} 💵`);
+            return;
+        }
+
+        personalBankBalances[username] -= bailCost;
+        mainBankBalance += bailCost;
+
+        playerDebts[targetUser] = 0;
+        delete bankDebtDeadlines[targetUser];
+        delete playerJailDeadlines[targetUser];
+        playerJailStages[targetUser] = 0;
+        bankBannedUsers[targetUser] = false;
+        playerLastChanceUsed[targetUser] = true;
+
+        client.say(channel, `🚨 ВНИМАНИЕ! За @${targetUser} внесли залог и выплатили его кредит! Он выпущен на свободу, но ЕМУ ВЫНЕСЕНО ПРЕДУПРЕЖДЕНИЕ: этот шанс дается всего 1 раз в жизни!`);
         return;
     }
 
@@ -984,11 +1105,19 @@ client.on('message', (channel, tags, message, self) => {
         personalBankBalances[username] -= amount;
         playerDebts[username] -= amount;
         mainBankBalance += amount;
+
+        if (playerDebts[username] === 0) {
+            delete bankDebtDeadlines[username];
+            delete playerJailDeadlines[username]; 
+            playerJailStages[username] = 0;
+            bankBannedUsers[username] = false; 
+        }
+
         client.say(channel, `✅ @${username} успешно погасил ${amount} 💵 кредита! Остаток долга: ${playerDebts[username]} 💵`);
         return;
     }
 
-    // --- 6. ТОП КАЗИНО ---
+    // --- ТОП КАЗИНО ---
     if (lowerMessage === '!топказ' || lowerMessage === '!topcas' || lowerMessage === '!топкрышки') {
         const sortedPlayers = Object.entries(playerBalances)
             .sort(([, a], [, b]) => b - a)
@@ -1008,7 +1137,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 7. СИСТЕМА ДОЛЖНОСТЕЙ В КАЗИНО ---
+    // --- ДОЛЖНОСТИ В КАЗИНО ---
     if (lowerMessage === '!должностиказ' || lowerMessage === '!staff') {
         let text = `🎰 ДОЛЖНОСТИ В КАЗИНО: `;
         Object.entries(CASINO_ROLES).forEach(([rName, rData]) => {
@@ -1049,7 +1178,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 8. СИСТЕМА КОММУНАЛЬНЫХ НАЛОГОВ ---
+    // --- КОММУНАЛЬНЫЕ НАЛОГИ ---
     if (lowerMessage === '!коммуналка' || lowerMessage === '!налоги' || lowerMessage === '!счета') {
         const u = playerUtilities[username] || { water: 0, gas: 0, light: 0 };
         client.say(channel, `💡 @${username} Ваши счета за коммуналку ➔ 🚰 Вода: ${u.water} 💵 | 🔥 Газ: ${u.gas} 💵 | ⚡ Свет: ${u.light} 💵. Оплата: !оплатить [вода/газ/свет/все]`);
@@ -1107,7 +1236,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 9. МАГАЗИН ПРЕДМЕТОВ ---
+    // --- МАГАЗИН ПРЕДМЕТОВ ---
     if (lowerMessage === '!магазин') {
         let text = `🛒 МАГАЗИН ТОВАРОВ: `;
         Object.entries(SHOP_ITEMS).forEach(([itemName, itemData]) => {
@@ -1154,7 +1283,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 10. МАГАЗИН БУСТОВ И СЧЕТ БУСТОВ ---
+    // --- МАГАЗИН БУСТОВ ---
     if (lowerMessage === '!бустшоп' || lowerMessage === '!усилители' || lowerMessage === '!бустики') {
         let text = `⚡ МАГАЗИН БУСТОВ (за счет бустов 🔮): `;
         Object.entries(CASINO_BOOSTS).forEach(([bName, bData]) => {
@@ -1200,7 +1329,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 11. КАЗИНО ---
+    // --- КАЗИНО ---
     if (lowerMessage.startsWith('!каз')) {
         if (!isCasinoOpen) {
             client.say(channel, `⏳ Казино сейчас закрыто. Приходите позже.`);
@@ -1283,7 +1412,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- ПОКЕР (МИНИ-ИГРА НА КОМБИНАЦИИ С НАЛОГАМИ В БАНКИ) ---
+    // --- ПОКЕР ---
     if (lowerMessage.startsWith('!покер')) {
         if (!isCasinoOpen) {
             client.say(channel, `⏳ Казино сейчас закрыто. Приходите позже.`);
@@ -1359,7 +1488,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- РУЛЕТКА (ЕВРОПЕЙСКАЯ: ЧИСЛА 0-36, ЦВЕТА И ДРУГИЕ СТАВКИ) ---
+    // --- РУЛЕТКА ---
     if (lowerMessage.startsWith('!рулетка')) {
         if (!isCasinoOpen) {
             client.say(channel, `⏳ Казино сейчас закрыто.`);
@@ -1452,7 +1581,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 12. ПРОФИЛЬ, БАЛАНС И СТАТИСТИКА ИГРОКА ---
+    // --- ПРОФИЛЬ И СТАТИСТИКА ---
     if (lowerMessage.startsWith('!статистика') || lowerMessage.startsWith('!профиль') || lowerMessage.startsWith('!стат')) {
         const args = trimmedMessage.split(' ');
         let targetUser = username;
@@ -1503,7 +1632,7 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
-    // --- 13. РАБОТА И ОБМЕН (С ПОСТРАНИЧНЫМ ВЫВОДОМ) ---
+    // --- РАБОТА И ОБМЕН ---
     if (lowerMessage.startsWith('!работы')) {
         const parts = trimmedMessage.split(' ');
         const page = parseInt(parts[1]) || 1;
@@ -1623,10 +1752,8 @@ client.on('message', (channel, tags, message, self) => {
     }
 });
 
-// Подключение бота
 client.connect().catch(console.error);
 
-// HTTP-сервер для Render.com
 const PORT = process.env.PORT || 3000;
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
