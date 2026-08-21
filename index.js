@@ -58,7 +58,7 @@ const CASINO_BOOSTS = {
 
 // --- СИСТЕМА ДОЛЖНОСТЕЙ В КАЗИНО И ФОНД ЗАРПЛАТ ---
 const casinoStaff = {};              // casinoStaff[username] = 'должность'
-let casinoSalaryFund = 0;            // Фонд зарплаты сотрудников казино
+let casinoSalaryFund = 0;            // Фонд зарплаты сотрудников казино[cite: 2]
 
 const CASINO_ROLES = {
     'хостес': {salary: 50, desc: 'Встречает гостей, которые идут в казино'},
@@ -75,12 +75,22 @@ const CASINO_ROLES = {
 const playerUtilities = {};          // playerUtilities[username] = { water: number, gas: number, light: number }
 
 // --- БАНКОВСКАЯ СИСТЕМА И СЧЕТА СТРИМА ---
-let mainBankBalance = 0;             // Основной банковский счет (сюда капают проценты)
-let casinoBank = 0;                  // Банк казино
-let boostsBank = 0;                  // Банк бустов
-let storeBank = 0;                   // Банк магазина
+let mainBankBalance = 0;             // Основной банковский счет (сюда капают проценты)[cite: 2]
+let casinoBank = 0;                  // Банк казино[cite: 2]
+let boostsBank = 0;                  // Банк бустов[cite: 2]
+let storeBank = 0;                   // Банк магазина[cite: 2]
 let isCasinoOpen = true;             // Состояние казино
 let manualOverride = false;          // Флаг ручного вмешательства
+
+// --- АВТОМАТИЧЕСКОЕ ПЕРЕЧИСЛЕНИЕ СРЕДСТВ ИЗ БАНКА В ФОНД ЗАРПЛАТЫ КАЗИНО ---
+setInterval(() => {
+    const transferAmount = 1000; // Сумма автоматического пополнения фонда из банка за раз
+    if (mainBankBalance >= transferAmount) {
+        mainBankBalance -= transferAmount;
+        casinoSalaryFund += transferAmount;
+        client.action('QumosX', `🏦 Банк автоматически перевёл ${transferAmount} 🪙 в Фонд зарплаты казино.`);
+    }
+}, 1 * 60 * 60 * 1000); // Проверка и перевод каждый день.
 
 // --- АВТОМАТИЧЕСКОЕ УПРАВЛЕНИЕ КАЗИНО ПО ВРЕМЕНИ ---
 setInterval(() => {
@@ -387,6 +397,28 @@ client.on('message', (channel, tags, message, self) => {
         return;
     }
 
+    // Команда для ручного перевода средств из Банка в Фонд Зарплаты казино
+    if (lowerMessage.startsWith('!банквфонд')) {
+        if (!isBroadcaster) {
+            client.say(channel, `❌ @${username}, эта команда доступна только Владельцу!`);
+            return;
+        }
+        const amount = parseInt(trimmedMessage.split(' ')[1]);
+        if (isNaN(amount) || amount <= 0) {
+            client.say(channel, `⚠️ Укажите сумму для перевода из Банка в Фонд. Пример: !банквфонд 1000`);
+            return;
+        }
+        if (mainBankBalance < amount) {
+            client.say(channel, `❌ В Основном банке (${mainBankBalance} 🪙) недостаточно средств для такого перевода!`);
+            return;
+        }
+
+        mainBankBalance -= amount;
+        casinoSalaryFund += amount;
+        client.say(channel, `🏦 Владелец перевел ${amount} 🪙 из Основного банка в Фонд зарплаты казино! Баланс фонда: ${casinoSalaryFund} 🪙`);
+        return;
+    }
+
     if (lowerMessage.startsWith('фонд+') || lowerMessage.startsWith('!фонд+')) {
         if (!isBroadcaster) {
             client.say(channel, `❌ @${username}, пополнять фонд зарплаты казино может только Владелец!`);
@@ -687,7 +719,6 @@ client.on('message', (channel, tags, message, self) => {
         const tax = Math.floor(totalPot * 0.1);
         const netWin = totalPot - tax;
         
-        // Распределение налога от дуэли на банки и вам на счёт бустов (если победили или всегда)
         const bankShare = Math.floor(tax * 0.4);
         const casinoShare = Math.floor(tax * 0.3);
         const boostShare = tax - bankShare - casinoShare;
@@ -1396,9 +1427,8 @@ client.on('message', (channel, tags, message, self) => {
             let rawWin = bet * 15 * winMultiplier;
             const tax = Math.floor(rawWin * 0.1);
             
-            // Распределение налога на ВСЕ банки + начисление вам на !счётбустов
-            const bankShare = Math.floor(tax * 5.50);
-            const casinoShare = Math.floor(tax * 50.50);
+            const bankShare = Math.floor(tax * 0.50);
+            const casinoShare = Math.floor(tax * 3.50);
             const boostBankShare = Math.floor(tax * 0.1);
             const storeShare = tax - bankShare - casinoShare - boostBankShare;
 
@@ -1407,8 +1437,7 @@ client.on('message', (channel, tags, message, self) => {
             boostsBank += boostBankShare;
             storeBank += storeShare;
 
-            // Начисление очков счёта бустов игроку (и вам тоже, если вы выиграли)
-            const rewardPoints = Math.max(1, Math.floor(tax * 0.1));
+            const rewardPoints = Math.max(1, Math.floor(tax * 0.2));
             boostShopBalances[username] = (boostShopBalances[username] || 0) + rewardPoints;
 
             const win = rawWin - tax;
@@ -1419,10 +1448,9 @@ client.on('message', (channel, tags, message, self) => {
             let rawWin = Math.floor(bet * 2.5 * winMultiplier);
             const tax = Math.max(1, Math.floor(rawWin * 0.1));
 
-            // Распределение налога на ВСЕ банки + начисление на !счётбустов
-            const bankShare = Math.max(1, Math.floor(tax * 5.50));
-            const casinoShare = Math.max(1, Math.floor(tax * 50.50));
-            const boostBankShare = Math.max(1, Math.floor(tax * 0.1));
+            const bankShare = Math.max(1, Math.floor(tax * 0.3));
+            const casinoShare = Math.max(1, Math.floor(tax * 0.3));
+            const boostBankShare = Math.max(1, Math.floor(tax * 0.2));
             const storeShare = Math.max(0, tax - bankShare - casinoShare - boostBankShare);
 
             mainBankBalance += bankShare;
@@ -1430,8 +1458,7 @@ client.on('message', (channel, tags, message, self) => {
             boostsBank += boostBankShare;
             storeBank += storeShare;
 
-            // Начисление очков счёта бустов игроку
-            const rewardPoints = Math.max(1, Math.floor(tax * 0.1));
+            const rewardPoints = Math.max(1, Math.floor(tax * 0.2));
             boostShopBalances[username] = (boostShopBalances[username] || 0) + rewardPoints;
 
             const win = rawWin - tax;
@@ -1515,7 +1542,6 @@ client.on('message', (channel, tags, message, self) => {
             rawWin = Math.floor(rawWin);
             const tax = Math.max(1, Math.floor(rawWin * 0.1));
 
-            // Распределение налога покерам на ВСЕ банки + !счётбустов
             const bankShare = Math.max(1, Math.floor(tax * 0.3));
             const casinoShare = Math.max(1, Math.floor(tax * 0.3));
             const boostBankShare = Math.max(1, Math.floor(tax * 0.2));
@@ -1526,7 +1552,6 @@ client.on('message', (channel, tags, message, self) => {
             boostsBank += boostBankShare;
             storeBank += storeShare;
 
-            // Начисление очков счёта бустов игроку
             const rewardPoints = Math.max(1, Math.floor(tax * 0.2));
             boostShopBalances[username] = (boostShopBalances[username] || 0) + rewardPoints;
 
@@ -1620,7 +1645,6 @@ client.on('message', (channel, tags, message, self) => {
         if (isWin) {
             const tax = Math.max(1, Math.floor(rawWin * 0.1));
             
-            // Распределение налога рулетки на ВСЕ банки + !счётбустов
             const bankShare = Math.max(1, Math.floor(tax * 0.3));
             const casinoShare = Math.max(1, Math.floor(tax * 0.3));
             const boostBankShare = Math.max(1, Math.floor(tax * 0.2));
@@ -1631,7 +1655,6 @@ client.on('message', (channel, tags, message, self) => {
             boostsBank += boostBankShare;
             storeBank += storeShare;
 
-            // Начисление очков счёта бустов игроку
             const rewardPoints = Math.max(1, Math.floor(tax * 0.2));
             boostShopBalances[username] = (boostShopBalances[username] || 0) + rewardPoints;
 
