@@ -1397,9 +1397,9 @@ client.on('message', (channel, tags, message, self) => {
             const tax = Math.floor(rawWin * 0.1);
             
             // Распределение налога на ВСЕ банки + начисление вам на !счётбустов
-            const bankShare = Math.floor(tax * 0.5);
-            const casinoShare = Math.floor(tax * 0.10);
-            const boostBankShare = Math.floor(tax * 0.2);
+            const bankShare = Math.floor(tax * 0.50);
+            const casinoShare = Math.floor(tax * 3.50);
+            const boostBankShare = Math.floor(tax * 0.1);
             const storeShare = tax - bankShare - casinoShare - boostBankShare;
 
             mainBankBalance += bankShare;
