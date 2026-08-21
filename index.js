@@ -1397,8 +1397,8 @@ client.on('message', (channel, tags, message, self) => {
             const tax = Math.floor(rawWin * 0.1);
             
             // Распределение налога на ВСЕ банки + начисление вам на !счётбустов
-            const bankShare = Math.floor(tax * 0.50);
-            const casinoShare = Math.floor(tax * 3.50);
+            const bankShare = Math.floor(tax * 5.50);
+            const casinoShare = Math.floor(tax * 50.50);
             const boostBankShare = Math.floor(tax * 0.1);
             const storeShare = tax - bankShare - casinoShare - boostBankShare;
 
@@ -1420,8 +1420,8 @@ client.on('message', (channel, tags, message, self) => {
             const tax = Math.max(1, Math.floor(rawWin * 0.1));
 
             // Распределение налога на ВСЕ банки + начисление на !счётбустов
-            const bankShare = Math.max(1, Math.floor(tax * 0.50));
-            const casinoShare = Math.max(1, Math.floor(tax * 3.50));
+            const bankShare = Math.max(1, Math.floor(tax * 5.50));
+            const casinoShare = Math.max(1, Math.floor(tax * 50.50));
             const boostBankShare = Math.max(1, Math.floor(tax * 0.1));
             const storeShare = Math.max(0, tax - bankShare - casinoShare - boostBankShare);
 
