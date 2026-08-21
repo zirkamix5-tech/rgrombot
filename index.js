@@ -202,7 +202,7 @@ setInterval(() => {
     });
 
     client.say('QumosX', `💰 Автоматическая выплата зарплат сотрудникам казино успешно проведена из фонда! Зарплаты зачислены на личные банковские счета 💵.`);
-}, 60 * 60 * 1000);
+}, 180 * 180 * 1000);
 
 // --- СИСТЕМА НАЧИСЛЕНИЯ КОММУНАЛЬНЫХ НАЛОГОВ ---
 setInterval(() => {
@@ -1397,8 +1397,8 @@ client.on('message', (channel, tags, message, self) => {
             const tax = Math.floor(rawWin * 0.1);
             
             // Распределение налога на ВСЕ банки + начисление вам на !счётбустов
-            const bankShare = Math.floor(tax * 0.3);
-            const casinoShare = Math.floor(tax * 0.3);
+            const bankShare = Math.floor(tax * 0.5);
+            const casinoShare = Math.floor(tax * 0.10);
             const boostBankShare = Math.floor(tax * 0.2);
             const storeShare = tax - bankShare - casinoShare - boostBankShare;
 
