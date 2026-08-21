@@ -53,12 +53,49 @@ const playerBoosts = {};             // playerBoosts[username] = { luck: 0, x2: 
 const CASINO_BOOSTS = {
     'удача': { price: 150, desc: 'Повышает шанс выигрыша в казино на след. 5 игр', type: 'luck', amount: 5 },
     'х2': { price: 300, desc: 'Удваивает выигрыш в казино на след. 3 игры', type: 'x2', amount: 3 },
-    'щит': { price: 200, desc: 'Защищает от проигрыша (возврат 50% ставки) на след. 3 игры', type: 'shield', amount: 3 }
+    'щит': { price: 200, desc: 'Защищает от проигрыша (возврат 50% ставки) на след. 3 игры', type: 'shield', amount: 3 },
+    
+    // --- НОВЫЕ БОНУСЫ (30 ШТУК) ---
+    // Ветка Удачи
+    'печенька': { price: 50, type: 'luck', amount: 1, desc: '+1 игра с повышенной удачей' },
+    'зелье_удачи': { price: 100, type: 'luck', amount: 3, desc: 'Кратковременный всплеск удачи (3 игры)' },
+    'кольцо_фортуны': { price: 200, type: 'luck', amount: 6, desc: 'Кольцо дарит удачу (6 игр)' },
+    'амулет': { price: 400, type: 'luck', amount: 15, desc: 'Длительная удача (15 игр)' },
+    'подкова': { price: 700, type: 'luck', amount: 30, desc: 'Надежная удача (30 игр)' },
+    'клевер': { price: 1500, type: 'luck', amount: 65, desc: 'Четырехлистный клевер (65 игр удачи)' },
+    'лапка': { price: 2500, type: 'luck', amount: 120, desc: 'Кроличья лапка (120 игр удачи)' },
+    'золото_инков': { price: 5000, type: 'luck', amount: 250, desc: 'Древняя удача (250 игр)' },
+    'магнит': { price: 10000, type: 'luck', amount: 550, desc: 'Притягивает победу (550 игр)' },
+    'корона': { price: 25000, type: 'luck', amount: 1000, desc: 'Корона короля казино (1000 игр удачи)' },
+    
+    // Ветка Умножения (х2)
+    'эликсир': { price: 150, type: 'x2', amount: 1, desc: 'Удвоение на 1 игру' },
+    'кристалл': { price: 350, type: 'x2', amount: 4, desc: 'Сверкающий кристалл х2 (4 игры)' },
+    'часы_времени': { price: 1200, type: 'x2', amount: 12, desc: 'Часы удваивают выигрыш (12 игр)' },
+    'допинг': { price: 1400, type: 'x2', amount: 15, desc: 'Удвоение на 15 игр' },
+    'адреналин': { price: 2500, type: 'x2', amount: 30, desc: 'Удвоение на 30 игр' },
+    'стероиды': { price: 5000, type: 'x2', amount: 65, desc: 'Мощное удвоение (65 игр)' },
+    'мутаген': { price: 9000, type: 'x2', amount: 120, desc: 'Химическое удвоение (120 игр)' },
+    'артефакт': { price: 18000, type: 'x2', amount: 250, desc: 'Магическое удвоение (250 игр)' },
+    'грааль': { price: 35000, type: 'x2', amount: 550, desc: 'Священный Грааль (550 игр х2)' },
+    'скипетр': { price: 50000, type: 'x2', amount: 1000, desc: 'Скипетр власти (1000 игр х2)' },
+    
+    // Ветка Защиты (Щиты)
+    'зонтик': { price: 75, type: 'shield', amount: 1, desc: 'Щит от проигрыша на 1 игру' },
+    'талисман': { price: 450, type: 'shield', amount: 7, desc: 'Деревянный талисман (7 игр защиты)' },
+    'сфера_жизни': { price: 800, type: 'shield', amount: 12, desc: 'Сфера возврата средств (12 игр)' },
+    'каска': { price: 900, type: 'shield', amount: 15, desc: 'Щит на 15 игр' },
+    'броник': { price: 1800, type: 'shield', amount: 30, desc: 'Бронежилет на 30 игр' },
+    'танк': { price: 3500, type: 'shield', amount: 60, desc: 'Танковая броня на 60 игр' },
+    'бункер': { price: 7000, type: 'shield', amount: 120, desc: 'Надежный бункер (120 игр)' },
+    'аура': { price: 14000, type: 'shield', amount: 250, desc: 'Аура защиты (250 игр)' },
+    'эгида': { price: 30000, type: 'shield', amount: 550, desc: 'Эгида бессмертия (550 игр)' },
+    'мантия': { price: 40000, type: 'shield', amount: 1000, desc: 'Мантия защиты (1000 игр со щитом)' }
 };
 
 // --- СИСТЕМА ДОЛЖНОСТЕЙ В КАЗИНО И ФОНД ЗАРПЛАТ ---
 const casinoStaff = {};              // casinoStaff[username] = 'должность'
-let casinoSalaryFund = 0;            // Фонд зарплаты сотрудников казино[cite: 2]
+let casinoSalaryFund = 0;            // Фонд зарплаты сотрудников казино
 
 const CASINO_ROLES = {
     'хостес': {salary: 50, desc: 'Встречает гостей, которые идут в казино'},
@@ -75,10 +112,10 @@ const CASINO_ROLES = {
 const playerUtilities = {};          // playerUtilities[username] = { water: number, gas: number, light: number }
 
 // --- БАНКОВСКАЯ СИСТЕМА И СЧЕТА СТРИМА ---
-let mainBankBalance = 0;             // Основной банковский счет (сюда капают проценты)[cite: 2]
-let casinoBank = 0;                  // Банк казино[cite: 2]
-let boostsBank = 0;                  // Банк бустов[cite: 2]
-let storeBank = 0;                   // Банк магазина[cite: 2]
+let mainBankBalance = 0;             // Основной банковский счет (сюда капают проценты)
+let casinoBank = 0;                  // Банк казино
+let boostsBank = 0;                  // Банк бустов
+let storeBank = 0;                   // Банк магазина
 let isCasinoOpen = true;             // Состояние казино
 let manualOverride = false;          // Флаг ручного вмешательства
 
@@ -792,8 +829,7 @@ client.on('message', (channel, tags, message, self) => {
         playerMarriages[proposer] = username;
         playerMarriages[username] = proposer;
         const dateStr = new Date().toLocaleDateString();
-        marriageDates[proposer] = dateStr;
-        marriageDates[username] = dateStr;
+        marriageDates[proposer] = marriageDates[username] = dateStr;
         
         const nowMs = Date.now();
         marriageTimestamps[proposer] = nowMs;
@@ -1318,6 +1354,12 @@ client.on('message', (channel, tags, message, self) => {
         if (!playerInventory[username]) playerInventory[username] = [];
         playerInventory[username].push(itemName);
 
+        // --- ДОБАВЛЕНО: КЕШБЭК В БУСТ-ШОП ПРИ ПОКУПКЕ ---
+        // Игрок получает 10% от стоимости товара обычного магазина в виде очков буст-шопа
+        const cashbackPoints = Math.max(1, Math.floor(item.price * 0.10));
+        boostShopBalances[username] = (boostShopBalances[username] || 0) + cashbackPoints;
+        // ------------------------------------------------
+
         if (item.type === 'жилье') {
             if (!playerUtilities[username]) {
                 playerUtilities[username] = { water: 0, gas: 0, light: 0 };
@@ -1328,7 +1370,7 @@ client.on('message', (channel, tags, message, self) => {
             client.say(channel, `🏠 Поздравляем с покупкой жилья! Следите за коммунальными услугами (!коммуналка).`);
         }
 
-        client.say(channel, `🛍️ Поздравляем, @${username}! Вы купили "${itemName}" за ${item.price} 💵 с личного счёта в банке!`);
+        client.say(channel, `🛍️ Поздравляем, @${username}! Вы купили "${itemName}" за ${item.price} 💵 с личного счёта в банке! (🎁 Кешбэк: +${cashbackPoints} 🔮 в буст-шоп)`);
         return;
     }
 
