@@ -1408,7 +1408,7 @@ client.on('message', (channel, tags, message, self) => {
             storeBank += storeShare;
 
             // Начисление очков счёта бустов игроку (и вам тоже, если вы выиграли)
-            const rewardPoints = Math.max(1, Math.floor(tax * 0.2));
+            const rewardPoints = Math.max(1, Math.floor(tax * 0.1));
             boostShopBalances[username] = (boostShopBalances[username] || 0) + rewardPoints;
 
             const win = rawWin - tax;
@@ -1420,9 +1420,9 @@ client.on('message', (channel, tags, message, self) => {
             const tax = Math.max(1, Math.floor(rawWin * 0.1));
 
             // Распределение налога на ВСЕ банки + начисление на !счётбустов
-            const bankShare = Math.max(1, Math.floor(tax * 0.3));
-            const casinoShare = Math.max(1, Math.floor(tax * 0.3));
-            const boostBankShare = Math.max(1, Math.floor(tax * 0.2));
+            const bankShare = Math.max(1, Math.floor(tax * 0.50));
+            const casinoShare = Math.max(1, Math.floor(tax * 3.50));
+            const boostBankShare = Math.max(1, Math.floor(tax * 0.1));
             const storeShare = Math.max(0, tax - bankShare - casinoShare - boostBankShare);
 
             mainBankBalance += bankShare;
@@ -1431,7 +1431,7 @@ client.on('message', (channel, tags, message, self) => {
             storeBank += storeShare;
 
             // Начисление очков счёта бустов игроку
-            const rewardPoints = Math.max(1, Math.floor(tax * 0.2));
+            const rewardPoints = Math.max(1, Math.floor(tax * 0.1));
             boostShopBalances[username] = (boostShopBalances[username] || 0) + rewardPoints;
 
             const win = rawWin - tax;
