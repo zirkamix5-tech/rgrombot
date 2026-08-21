@@ -232,6 +232,8 @@ const JOBS_DATA = {
     'Мусорщик': { salary: 30, cooldown: 15 * 60 * 1000, req: 0 },
     'Грузчик': { salary: 55, cooldown: 15 * 60 * 1000, req: 0 },
     'Курьер': { salary: 100, cooldown: 30 * 60 * 1000, req: 125 },
+	'Разнощик': { salary: 125, cooldown: 40 * 60 * 1000, req: 200 },
+	'Почтальйон': { salary: 140, cooldown: 40 * 60 * 1000, req: 200 },
     'Электрик': { salary: 150, cooldown: 45 * 60 * 1000, req: 200 },
     'Бухгалтер': { salary: 200, cooldown: 50 * 60 * 1000, req: 300 },
     'Помощник-Повара': { salary: 230, cooldown: 60 * 60 * 1000, req: 270 },
@@ -244,34 +246,42 @@ const JOBS_DATA = {
     'Домашний-кондитер': { salary: 900, cooldown: 60 * 60 * 1000, req: 1000 },
     'Шеф-Повар': { salary: 1200, cooldown: 60 * 60 * 1000, req: 1000 },
     'Су-шеф': { salary: 2000, cooldown: 60 * 60 * 1000, req:  1000 },
+	'Могильщик': { salary: 2200, cooldown: 120 * 120 * 1000, req: 9000 },
+	'Полицейский': { salary: 2300, cooldown: 130 * 130 * 1000, req: 5000 },
+	'Пожарный': { salary: 2300, cooldown: 130 * 130 * 1000, req: 5000 },
+	'Медик': { salary: 2300, cooldown: 130 * 130 * 1000, req: 5000 },
     'Модель': { salary: 2300, cooldown: 60 * 60 * 1000, req: 2700 },
     'Актёр': { salary: 2500, cooldown: 60 * 60 * 1000, req: 2900 },
 	'Хакер': { salary: 5000, cooldown: 120 * 120 * 1000, req: 7000 },
+	'Сапёр': { salary: 9000, cooldown: 180 * 180 * 1000, req: 12000 },
+	'Охрана президента': { salary: 10000, cooldown: 240 * 240 * 1000, req: 25000 },
+	'Чистильщик': { salary: 50000, cooldown: 250 * 250 * 1000, req: 90000 },
+	'Бизнесмен': { salary: 90000, cooldown: 500 * 500 * 1000, req: 125000 },
 };
 
 const SHOP_ITEMS = {
-    'велосипед': { price: 500, type: 'транспорт', desc: 'Двухколесный друг для поездок' },
-    'мопед': { price: 1500, type: 'транспорт', desc: 'Уже с ветерком!' },
+    'велосипед': { price: 1000, type: 'транспорт', desc: 'Двухколесный друг для поездок' },
+    'мопед': { price: 2000, type: 'транспорт', desc: 'Уже с ветерком!' },
     'электросамокат': { price: 3500, type: 'транспорт', desc: 'Уже легче' },
     'электромопед': { price: 5500, type: 'транспорт', desc: 'Электро...' },
     'машина': { price: 5000, type: 'транспорт', desc: 'Настоящая личная тачка' },
     'спорткар': { price: 20000, type: 'транспорт', desc: 'Быстрая машина для стритрейсера' },
-    'Яхта': { price: 30000, type: 'транспорт', desc: 'Легче чем было' },
-    'Круиз-Лайнер': { price: 75000, type: 'транспорт', desc: 'Плаваем удачно' },
-    'Самолёт': { price: 100000, type: 'транспорт', desc: 'Уже летаем.' },
-    'Вертолёт': { price: 125000, type: 'транспорт', desc: 'Ура, вертик.' },
-    'комната': { price: 3000, type: 'жилье', desc: 'Уголок в общежитии' },
-    'квартира': { price: 12000, type: 'жилье', desc: 'Собственная квартира в центре' },
-    'дом': { price: 45000, type: 'жилье', desc: 'Загородный домик' },
-    'Коттедж': { price: 60000, type: 'жилье', desc: 'Загородный коттедж' },
-    'Вилла': { price: 100000, type: 'жилье', desc: 'Уф, богато!' }
+    'Яхта': { price: 60000, type: 'транспорт', desc: 'Легче чем было' },
+    'круиз-лайнер': { price: 75000, type: 'транспорт', desc: 'Плаваем удачно' },
+    'самолёт': { price: 100000, type: 'транспорт', desc: 'Уже летаем.' },
+    'вертолёт': { price: 155000, type: 'транспорт', desc: 'Ура, вертик.' },
+    'комната': { price: 12000, type: 'жилье', desc: 'Уголок в общежитии' },
+    'квартира': { price: 50000, type: 'жилье', desc: 'Собственная квартира в центре' },
+    'дом': { price: 125000, type: 'жилье', desc: 'Загородный домик' },
+    'коттедж': { price: 300000, type: 'жилье', desc: 'Загородный коттедж' },
+    'вилла': { price: 1000000, type: 'жилье', desc: 'Уф, богато!' }
 };
 
 const bankBannedUsers = {};
 
 const knownBots = new Set([
     'nightbot', 'streamelements', 'fossabot', 'moobot', 'soundalerts',
-    'Streamlabs', 'WizeBot', 'Coebot', 'Phantombot', 'AlippBot', 'BotRix', 'AlerterBot'
+    'Streamlabs', 'WizeBot', 'Coebot', 'Phantombot', 'AlippBot', 'BotRix', 'AlerterBot', 'deepseekbot'
 ]);
 
 function самСдоровался(username) {
@@ -998,7 +1008,7 @@ client.on('message', (channel, tags, message, self) => {
         const stage = playerJailStages[username] || 0;
         let jailStatus = stage > 0 ? ` | Тюремная стадия: ${stage}/3` : '';
 
-        client.say(channel, `💳 @${username} | Кредит банка: ${playerDebts[username]} 💵${bankTimeLeftText} | Долг казино: ${casinoDebts[username]} 🪙${timeLeftText}${jailStatus}`);
+        client.say(channel, `💳 @${username} | Кредит в банке: ${playerDebts[username]} 💵${bankTimeLeftText} | Долг в казино: ${casinoDebts[username]} 🪙${timeLeftText}${jailStatus}`);
         return;
     }
 
@@ -1098,7 +1108,7 @@ client.on('message', (channel, tags, message, self) => {
         }
         if (amount > currentDebt) amount = currentDebt;
         if (personalBankBalances[username] < amount) {
-            client.say(channel, `❌ Недостаточно средств на личном банковском счете (${personalBankBalances[username]} 💵) для погашения ${amount} 💵 кредита.`);
+            client.say(channel, `❌ Недостаточно средств на личном банковском счёте (${personalBankBalances[username]} 💵) для погашения ${amount} 💵 кредита.`);
             return;
         }
 
@@ -1256,7 +1266,7 @@ client.on('message', (channel, tags, message, self) => {
         }
 
         if (personalBankBalances[username] < item.price) {
-            client.say(channel, `❌ Недостаточно средств на личном банковском счете! У вас: ${personalBankBalances[username]} 💵 (нужно: ${item.price})`);
+            client.say(channel, `❌ Недостаточно средств на личном банковском счёте! У вас: ${personalBankBalances[username]} 💵 (нужно: ${item.price})`);
             return;
         }
 
@@ -1279,7 +1289,7 @@ client.on('message', (channel, tags, message, self) => {
             client.say(channel, `🏠 Поздравляем с покупкой жилья! Следите за коммунальными услугами (!коммуналка).`);
         }
 
-        client.say(channel, `🛍️ Поздравляем, @${username}! Вы купили "${itemName}" за ${item.price} 💵 с личного счета в банке!`);
+        client.say(channel, `🛍️ Поздравляем, @${username}! Вы купили "${itemName}" за ${item.price} 💵 с личного счёта в банке!`);
         return;
     }
 
@@ -1337,7 +1347,7 @@ client.on('message', (channel, tags, message, self) => {
         }
 
         if (playerBalances[username] <= 0) {
-            client.say(channel, `❌ @${username}, у вас 0 КРЫШЕК! Вы всё слили. Заработайте деньги на работе (!работа) или обменяйте их с банковского счета (!обмен), чтобы продолжить игру.`);
+            client.say(channel, `❌ @${username}, у вас 0 КРЫШЕК! Вы всё слили. Заработайте деньги на работе (!работа) или обменяйте их с банковского счёта (!обмен), чтобы продолжить игру.`);
             return;
         }
 
@@ -1538,14 +1548,14 @@ client.on('message', (channel, tags, message, self) => {
         }
 
         if (!isValidBetTarget) {
-            client.say(channel, `❌ Неверная ставка! Укажите цвет (красное, черное, зеленый) или конкретное число от 0 до 36.`);
+            client.say(channel, `❌ Неверная ставка! Укажите цвет (красное, чёрное, зелёный) или конкретное число от 0 до 36.`);
             return;
         }
 
         playerBalances[username] -= bet;
 
         const rolledNumber = Math.floor(Math.random() * 37);
-        let rolledColor = '🟢 зеленый (0)';
+        let rolledColor = '🟢 зелёный (0)';
         if (redNumbers.includes(rolledNumber)) rolledColor = '🔴 красное';
         else if (blackNumbers.includes(rolledNumber)) rolledColor = '⚫ чёрное';
 
@@ -1619,7 +1629,7 @@ client.on('message', (channel, tags, message, self) => {
         const b = playerBoosts[targetUser] || { luck: 0, x2: 0, shield: 0 };
         const activeBoosts = `Уд:${b.luck}|x2:${b.x2}|Щит:${b.shield}`;
 
-        let profileText = `📊 Профиль @${targetUser} ➔ 🎂 Возраст: ${age} лет | 🪙 КРЫШКИ: ${caps} | 🏦 Банк (личный счет): ${pBank} | 🏦 Банк-долг: ${debt} | 🎰 Долг казино: ${cDebt} | 🔮 Буст-очки: ${boostPoints} | 💼 Работа: ${job}`;
+        let profileText = `📊 Профиль @${targetUser} ➔ 🎂 Возраст: ${age} лет | 🪙 КРЫШКИ: ${caps} | 🏦 Банк (личный счёт): ${pBank} | 🏦 Банк-долг: ${debt} | 🎰 Долг казино: ${cDebt} | 🔮 Буст-очки: ${boostPoints} | 💼 Работа: ${job}`;
         if (casinoRole) profileText += ` | Должность: ${casinoRole}`;
         profileText += ` | 💒 Семья: ${marriage} | 🛒 Имущество: [${inventory}] | 💡 Коммуналка: [${utilitiesText}] | ⚡ Бусты: [${activeBoosts}]`;
 
@@ -1628,7 +1638,7 @@ client.on('message', (channel, tags, message, self) => {
     }
 
     if (lowerMessage === '!*100#' || lowerMessage === '*100#') {
-        client.say(channel, `💰 @${username} | Возраст: ${playerAges[username]} лет | Казино: ${playerBalances[username]} 🪙 | Личный банк: ${personalBankBalances[username]} 💵 | Счёт бустов: ${boostShopBalances[username]} 🔮 | Долги (Банк: ${playerDebts[username]} | Казино: ${casinoDebts[username]})`);
+        client.say(channel, `💰 @${username} | Возраст: ${playerAges[username]} лет | Казино: ${playerBalances[username]} 🪙 | Баланс в банке: ${personalBankBalances[username]} 💵 | Счёт бустов: ${boostShopBalances[username]} 🔮 | Долги (Банк: ${playerDebts[username]} | Казино: ${casinoDebts[username]})`);
         return;
     }
 
