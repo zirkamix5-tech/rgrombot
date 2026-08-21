@@ -686,8 +686,16 @@ client.on('message', (channel, tags, message, self) => {
 
         const tax = Math.floor(totalPot * 0.1);
         const netWin = totalPot - tax;
-        casinoBank += Math.floor(tax / 2);
-        mainBankBalance += tax - Math.floor(tax / 2);
+        
+        // Распределение налога от дуэли на банки и вам на счёт бустов (если победили или всегда)
+        const bankShare = Math.floor(tax * 0.4);
+        const casinoShare = Math.floor(tax * 0.3);
+        const boostShare = tax - bankShare - casinoShare;
+        
+        mainBankBalance += bankShare;
+        casinoBank += casinoShare;
+        boostsBank += boostShare;
+        boostShopBalances[winner] = (boostShopBalances[winner] || 0) + Math.max(1, Math.floor(tax * 0.1));
 
         playerBalances[winner] += netWin;
         client.say(channel, `🏆 Победитель дуэли (@${winner}) забирает банк в размере +${netWin} 🪙! (Комиссия: ${tax} 🪙). Поздравляем!`);
@@ -1388,9 +1396,20 @@ client.on('message', (channel, tags, message, self) => {
             let rawWin = bet * 15 * winMultiplier;
             const tax = Math.floor(rawWin * 0.1);
             
-            const bankShare = Math.floor(tax * 0.5);
-            casinoBank += (tax - bankShare);
+            // Распределение налога на ВСЕ банки + начисление вам на !счётбустов
+            const bankShare = Math.floor(tax * 0.3);
+            const casinoShare = Math.floor(tax * 0.3);
+            const boostBankShare = Math.floor(tax * 0.2);
+            const storeShare = tax - bankShare - casinoShare - boostBankShare;
+
             mainBankBalance += bankShare;
+            casinoBank += casinoShare;
+            boostsBank += boostBankShare;
+            storeBank += storeShare;
+
+            // Начисление очков счёта бустов игроку (и вам тоже, если вы выиграли)
+            const rewardPoints = Math.max(1, Math.floor(tax * 0.2));
+            boostShopBalances[username] = (boostShopBalances[username] || 0) + rewardPoints;
 
             const win = rawWin - tax;
             playerBalances[username] += win;
@@ -1400,9 +1419,20 @@ client.on('message', (channel, tags, message, self) => {
             let rawWin = Math.floor(bet * 2.5 * winMultiplier);
             const tax = Math.max(1, Math.floor(rawWin * 0.1));
 
-            const bankShare = Math.max(1, Math.floor(tax * 0.5));
-            casinoBank += (tax - bankShare);
+            // Распределение налога на ВСЕ банки + начисление на !счётбустов
+            const bankShare = Math.max(1, Math.floor(tax * 0.3));
+            const casinoShare = Math.max(1, Math.floor(tax * 0.3));
+            const boostBankShare = Math.max(1, Math.floor(tax * 0.2));
+            const storeShare = Math.max(0, tax - bankShare - casinoShare - boostBankShare);
+
             mainBankBalance += bankShare;
+            casinoBank += casinoShare;
+            boostsBank += boostBankShare;
+            storeBank += storeShare;
+
+            // Начисление очков счёта бустов игроку
+            const rewardPoints = Math.max(1, Math.floor(tax * 0.2));
+            boostShopBalances[username] = (boostShopBalances[username] || 0) + rewardPoints;
 
             const win = rawWin - tax;
             playerBalances[username] += win;
@@ -1462,7 +1492,7 @@ client.on('message', (channel, tags, message, self) => {
 
         let counts = Object.values(rankCounts).sort((a, b) => b - a);
         let rawWin = 0;
-        let comboName = "Старшая карта (Проигрыш)";
+        let comboName = "Старшая карта (Проигрышь)";
 
         if (counts[0] === 4) {
             rawWin = bet * 20;
@@ -1485,9 +1515,20 @@ client.on('message', (channel, tags, message, self) => {
             rawWin = Math.floor(rawWin);
             const tax = Math.max(1, Math.floor(rawWin * 0.1));
 
-            const bankShare = Math.max(1, Math.floor(tax * 0.5));
-            casinoBank += (tax - bankShare);
+            // Распределение налога покерам на ВСЕ банки + !счётбустов
+            const bankShare = Math.max(1, Math.floor(tax * 0.3));
+            const casinoShare = Math.max(1, Math.floor(tax * 0.3));
+            const boostBankShare = Math.max(1, Math.floor(tax * 0.2));
+            const storeShare = Math.max(0, tax - bankShare - casinoShare - boostBankShare);
+
             mainBankBalance += bankShare;
+            casinoBank += casinoShare;
+            boostsBank += boostBankShare;
+            storeBank += storeShare;
+
+            // Начисление очков счёта бустов игроку
+            const rewardPoints = Math.max(1, Math.floor(tax * 0.2));
+            boostShopBalances[username] = (boostShopBalances[username] || 0) + rewardPoints;
 
             const win = rawWin - tax;
             playerBalances[username] += win;
@@ -1578,9 +1619,21 @@ client.on('message', (channel, tags, message, self) => {
 
         if (isWin) {
             const tax = Math.max(1, Math.floor(rawWin * 0.1));
-            const bankShare = Math.max(1, Math.floor(tax * 0.5));
-            casinoBank += (tax - bankShare);
+            
+            // Распределение налога рулетки на ВСЕ банки + !счётбустов
+            const bankShare = Math.max(1, Math.floor(tax * 0.3));
+            const casinoShare = Math.max(1, Math.floor(tax * 0.3));
+            const boostBankShare = Math.max(1, Math.floor(tax * 0.2));
+            const storeShare = Math.max(0, tax - bankShare - casinoShare - boostBankShare);
+
             mainBankBalance += bankShare;
+            casinoBank += casinoShare;
+            boostsBank += boostBankShare;
+            storeBank += storeShare;
+
+            // Начисление очков счёта бустов игроку
+            const rewardPoints = Math.max(1, Math.floor(tax * 0.2));
+            boostShopBalances[username] = (boostShopBalances[username] || 0) + rewardPoints;
 
             const win = rawWin - tax;
             playerBalances[username] += win;
@@ -1662,7 +1715,7 @@ client.on('message', (channel, tags, message, self) => {
         pageJobs.forEach(([jobName, data]) => {
             text += `[${jobName}] Зарп: ${data.salary} 💵 (мин. в банке: ${data.req}) | `;
         });
-        text += `(Смотреть след: !работы 2 | Устроиться: !устроиться [название])`;
+        text += `(Смотреть след: !работы 3 | Устроиться: !устроиться [название])`;
         client.say(channel, text);
         return;
     }
