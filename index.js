@@ -1647,7 +1647,7 @@ client.on('message', (channel, tags, message, self) => {
         const parts = trimmedMessage.split(' ');
         const page = parseInt(parts[1]) || 1;
         const jobEntries = Object.entries(JOBS_DATA);
-        const perPage = 8;
+        const perPage = 12;
         const totalPages = Math.ceil(jobEntries.length / perPage);
 
         const start = (page - 1) * perPage;
