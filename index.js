@@ -219,7 +219,7 @@ setInterval(() => {
 
             mainBankBalance -= pensionAmount;
             personalBankBalances[username] = (personalBankBalances[username] || 0) + pensionAmount;
-            client.say('QumosX', `👴 Государственный банк выплатил пенсию ветерану труда @${username} (Возраст: ${age} лет) в размере ${pensionAmount} 💵 на личный банковский счёт!`);
+            client.say('QumosX', `👴 Банк выплатил пенсию ветерану труда @${username} (Возраст: ${age} лет) в размере ${pensionAmount} 💵 на личный банковский счёт!`);
         }
     }
 }, 800 * 800 * 1000);
